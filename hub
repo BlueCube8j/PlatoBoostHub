@@ -1,4 +1,4 @@
--- Platoboost Hub (Только обводка и Aim)
+-- Platoboost Hub (Обводка + Aim Lock с Prediction)
 print("Platoboost Hub Activated!")
 
 -- Сервисы
@@ -15,7 +15,9 @@ local Settings = {
     AimKey = "Q",
     MaxDistance = 99,
     AimFOV = 60,
-    TeamCheck = false
+    TeamCheck = false,
+    Smoothness = 0.3,
+    Prediction = 0.2 -- предугадывание движения в секундах
 }
 
 -- Только Highlight для обводки
@@ -23,6 +25,7 @@ local ESPHighlights = {}
 
 -- Aim
 local AimTarget = nil
+local LastVelocity = Vector3.new(0,0,0)
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = Settings.AimLock
 FOVCircle.Radius = Settings.AimFOV
@@ -45,7 +48,7 @@ ScreenGui.Name = "PlatoboostHub"
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 150)
+MainFrame.Size = UDim2.new(0, 300, 0, 220)
 MainFrame.Position = UDim2.new(0, 10, 0, 10)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BackgroundTransparency = 0.2
@@ -62,16 +65,50 @@ UICorner.Parent = MainFrame
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Title.Text = "Platoboost"
+Title.Text = "Platoboost Hub"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.Code
 Title.TextSize = 18
 Title.Parent = MainFrame
 
+-- Настройка бинда
+local KeybindFrame = Instance.new("Frame")
+KeybindFrame.Size = UDim2.new(1, -20, 0, 40)
+KeybindFrame.Position = UDim2.new(0, 10, 0, 40)
+KeybindFrame.BackgroundTransparency = 1
+KeybindFrame.Parent = MainFrame
+
+local KeybindLabel = Instance.new("TextLabel")
+KeybindLabel.Size = UDim2.new(0.5, 0, 1, 0)
+KeybindLabel.BackgroundTransparency = 1
+KeybindLabel.Text = "Aim Key:"
+KeybindLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeybindLabel.Font = Enum.Font.Code
+KeybindLabel.TextSize = 14
+KeybindLabel.TextXAlignment = Enum.TextXAlignment.Left
+KeybindLabel.Parent = KeybindFrame
+
+local KeybindBox = Instance.new("TextBox")
+KeybindBox.Size = UDim2.new(0.5, -5, 1, 0)
+KeybindBox.Position = UDim2.new(0.5, 5, 0, 0)
+KeybindBox.BackgroundColor3 = Color3.fromRGB(70, 70, 80)
+KeybindBox.Text = Settings.AimKey
+KeybindBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeybindBox.Font = Enum.Font.Code
+KeybindBox.TextSize = 14
+KeybindBox.Parent = KeybindFrame
+
+KeybindBox.FocusLost:Connect(function()
+    if KeybindBox.Text ~= "" then
+        Settings.AimKey = string.upper(string.sub(KeybindBox.Text, 1, 1))
+        KeybindBox.Text = Settings.AimKey
+    end
+end)
+
 -- ESP Toggle
 local ESPToggle = Instance.new("TextButton")
 ESPToggle.Size = UDim2.new(1, -20, 0, 40)
-ESPToggle.Position = UDim2.new(0, 10, 0, 40)
+ESPToggle.Position = UDim2.new(0, 10, 0, 90)
 ESPToggle.BackgroundColor3 = Settings.ESP and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
 ESPToggle.Text = "ESP [" .. (Settings.ESP and "ON" or "OFF") .. "]"
 ESPToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -86,7 +123,7 @@ ESPCorner.Parent = ESPToggle
 -- Aim Lock Toggle
 local AimToggle = Instance.new("TextButton")
 AimToggle.Size = UDim2.new(1, -20, 0, 40)
-AimToggle.Position = UDim2.new(0, 10, 0, 90)
+AimToggle.Position = UDim2.new(0, 10, 0, 140)
 AimToggle.BackgroundColor3 = Settings.AimLock and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
 AimToggle.Text = "AIM LOCK [" .. (Settings.AimLock and "ON" or "OFF") .. "]"
 AimToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
@@ -142,7 +179,7 @@ function UpdateESP()
     end
 end
 
--- Aim Lock функция
+-- Aim Lock с предугадыванием
 function GetClosestPlayer()
     local closest = nil
     local maxDist = Settings.AimFOV
@@ -151,7 +188,8 @@ function GetClosestPlayer()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
             local head = player.Character:FindFirstChild("Head")
-            if head then
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            if head and root then
                 local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
                 if onScreen then
                     local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
@@ -161,6 +199,8 @@ function GetClosestPlayer()
                         end
                         closest = player
                         maxDist = dist
+                        -- Сохраняем скорость для предугадывания
+                        LastVelocity = root.Velocity
                     end
                 end
             end
@@ -169,16 +209,43 @@ function GetClosestPlayer()
     return closest
 end
 
--- Aim Lock при зажатии Q
+-- Плавное прицеливание с предугадыванием
+function SmoothAim(targetHead, prediction)
+    if not targetHead then return end
+    
+    local headPos = targetHead.Position
+    -- Добавляем предугадывание на основе скорости
+    if prediction > 0 and LastVelocity then
+        headPos = headPos + (LastVelocity * prediction)
+    end
+    
+    local currentCFrame = Camera.CFrame
+    local targetCFrame = CFrame.new(currentCFrame.Position, headPos)
+    
+    -- Плавная интерполяция
+    Camera.CFrame = currentCFrame:Lerp(targetCFrame, Settings.Smoothness)
+end
+
+-- Aim Lock при зажатии клавиши
+local Aiming = false
+
 UIS.InputBegan:Connect(function(input)
     if input.KeyCode.Name == Settings.AimKey and Settings.AimLock then
+        Aiming = true
         AimTarget = GetClosestPlayer()
-        if AimTarget and AimTarget.Character then
+        
+        while Aiming and AimTarget and AimTarget.Character and Settings.AimLock do
             local head = AimTarget.Character:FindFirstChild("Head")
-            if head then
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
-            end
+            SmoothAim(head, Settings.Prediction)
+            RunService.RenderStepped:Wait()
         end
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.KeyCode.Name == Settings.AimKey then
+        Aiming = false
+        AimTarget = nil
     end
 end)
 
