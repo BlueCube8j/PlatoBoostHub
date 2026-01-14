@@ -1,13 +1,10 @@
--- PlatoBoost Hub (Fixed Version)
--- Original by BlueCube8j, fixed by Colin
-
+-- PlatoBoost Hub (FULL FIXED VERSION)
 -- Services
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local UIS = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 -- Configuration
 local Config = {
@@ -15,7 +12,7 @@ local Config = {
         Enabled = true,
         Key = "Q",
         FOV = 60,
-        Smoothness = 0.5,
+        Smoothness = 1, -- 1 = мгновенный поворот
         Prediction = 0.15,
         TeamCheck = false,
         MaxDistance = 250
@@ -23,12 +20,9 @@ local Config = {
     ESP = {
         Enabled = true,
         MaxDistance = 250,
-        UpdateRate = 0.2, -- Updates per second for FPS optimization
+        UpdateRate = 0.2,
         OutlineColor = Color3.new(1, 1, 1),
         FillTransparency = 0.9
-    },
-    UI = {
-        KeybindConfig = true
     }
 }
 
@@ -93,26 +87,27 @@ local function GetClosestTarget()
     return closest
 end
 
--- Aim Lock function (fixed)
+-- AIM LOCK FIXED (Мгновенный поворот камеры)
 local function AimAtTarget(target)
     if not target or not target.Character then return end
     
     local head = target.Character:FindFirstChild("Head")
     if not head then return end
     
-    -- Add prediction
+    -- Предсказание движения
     local root = target.Character:FindFirstChild("HumanoidRootPart")
     local predictedPosition = head.Position
     if root then
         predictedPosition = head.Position + (root.Velocity * Config.AimLock.Prediction)
     end
     
-    -- Smooth camera movement
-    local targetCFrame = CFrame.new(Camera.CFrame.Position, predictedPosition)
-    Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Config.AimLock.Smoothness)
+    -- Мгновенный поворот камеры
+    local cameraPos = Camera.CFrame.Position
+    local newCFrame = CFrame.new(cameraPos, predictedPosition)
+    Camera.CFrame = newCFrame
 end
 
--- Optimized ESP (Outline only)
+-- Optimized ESP
 local function UpdateESP()
     local now = tick()
     if now - LastESPUpdate < Config.ESP.UpdateRate then return end
@@ -189,7 +184,7 @@ UIS.InputEnded:Connect(function(input)
     end
 end)
 
--- GUI with Keybind Config
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PlatoBoostGUI"
 ScreenGui.Parent = game:GetService("CoreGui")
