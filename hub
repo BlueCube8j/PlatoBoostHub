@@ -1,4 +1,4 @@
--- PlatoBoost Hub (FULL FIXED NO LAG)
+-- PlatoBoost Hub (OUTLINE ESP via Drawing lines)
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -7,14 +7,14 @@ local RunService = game:GetService("RunService")
 
 local Config = {
     AimLock = {Enabled = true, Key = "Q", FOV = 60, MaxDistance = 250},
-    ESP = {Enabled = true, MaxDistance = 250, Color = Color3.new(1,1,1)},
+    ESP = {Enabled = true, MaxDistance = 250, Color = Color3.new(1,1,1), Thickness = 1},
     UI = {ToggleKey = "L"}
 }
 
 local AimActive = false
 local CurrentTarget = nil
 local UIVisible = true
-local ESPDrawings = {}
+local ESPOutlines = {}
 
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Visible = Config.AimLock.Enabled
@@ -28,7 +28,7 @@ local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 150)
+MainFrame.Size = UDim2.new(0, 200, 0, 120)
 MainFrame.Position = UDim2.new(0, 10, 0, 10)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 MainFrame.BackgroundTransparency = 0.2
@@ -76,66 +76,106 @@ local AimAtTarget = function(target)
     Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
 end
 
+local CreateOutline = function(player)
+    if ESPOutlines[player] then return end
+    
+    ESPOutlines[player] = {
+        Top = Drawing.new("Line"),
+        Bottom = Drawing.new("Line"),
+        Left = Drawing.new("Line"),
+        Right = Drawing.new("Line")
+    }
+    
+    for _, line in pairs(ESPOutlines[player]) do
+        line.Color = Config.ESP.Color
+        line.Thickness = Config.ESP.Thickness
+        line.Visible = false
+    end
+end
+
+local UpdateOutline = function(player, char)
+    local drawings = ESPOutlines[player]
+    if not drawings then return end
+    
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then
+        for _, line in pairs(drawings) do
+            line.Visible = false
+        end
+        return
+    end
+    
+    local dist = (root.Position - Camera.CFrame.Position).Magnitude
+    if dist > Config.ESP.MaxDistance then
+        for _, line in pairs(drawings) do
+            line.Visible = false
+        end
+        return
+    end
+    
+    local scale = 1000/dist
+    local width, height = 10*scale, 15*scale
+    
+    local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
+    if not onScreen then
+        for _, line in pairs(drawings) do
+            line.Visible = false
+        end
+        return
+    end
+    
+    local x, y = pos.X, pos.Y
+    local halfW, halfH = width/2, height/2
+    
+    -- Top line
+    drawings.Top.From = Vector2.new(x - halfW, y - halfH)
+    drawings.Top.To = Vector2.new(x + halfW, y - halfH)
+    drawings.Top.Visible = Config.ESP.Enabled
+    
+    -- Bottom line
+    drawings.Bottom.From = Vector2.new(x - halfW, y + halfH)
+    drawings.Bottom.To = Vector2.new(x + halfW, y + halfH)
+    drawings.Bottom.Visible = Config.ESP.Enabled
+    
+    -- Left line
+    drawings.Left.From = Vector2.new(x - halfW, y - halfH)
+    drawings.Left.To = Vector2.new(x - halfW, y + halfH)
+    drawings.Left.Visible = Config.ESP.Enabled
+    
+    -- Right line
+    drawings.Right.From = Vector2.new(x + halfW, y - halfH)
+    drawings.Right.To = Vector2.new(x + halfW, y + halfH)
+    drawings.Right.Visible = Config.ESP.Enabled
+end
+
 local UpdateESP = function()
     if not Config.ESP.Enabled then
-        for _, drawings in pairs(ESPDrawings) do
-            drawings.Box.Visible = false
-            drawings.Name.Visible = false
+        for _, drawings in pairs(ESPOutlines) do
+            for _, line in pairs(drawings) do
+                line.Visible = false
+            end
         end
         return
     end
     
     for _, player in ipairs(Players:GetPlayers()) do
         if player == LocalPlayer then continue end
+        
         local char = player.Character
         if not char then
-            if ESPDrawings[player] then
-                ESPDrawings[player].Box.Visible = false
-                ESPDrawings[player].Name.Visible = false
+            if ESPOutlines[player] then
+                for _, line in pairs(ESPOutlines[player]) do
+                    line.Visible = false
+                end
             end
             continue
         end
         
-        local head = char:FindFirstChild("Head")
-        if not head then continue end
-        
-        local dist = (head.Position - Camera.CFrame.Position).Magnitude
-        if dist > Config.ESP.MaxDistance then
-            if ESPDrawings[player] then
-                ESPDrawings[player].Box.Visible = false
-                ESPDrawings[player].Name.Visible = false
-            end
-            continue
+        if not ESPOutlines[player] then
+            CreateOutline(player)
         end
         
-        if not ESPDrawings[player] then
-            ESPDrawings[player] = {
-                Box = Drawing.new("Square"),
-                Name = Drawing.new("Text")
-            }
-            ESPDrawings[player].Box.Color = Config.ESP.Color
-            ESPDrawings[player].Box.Thickness = 1
-            ESPDrawings[player].Box.Filled = false
-            ESPDrawings[player].Name.Color = Config.ESP.Color
-            ESPDrawings[player].Name.Size = 13
-            ESPDrawings[player].Name.Outline = true
-        end
-        
-        local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
-        if onScreen then
-            local scale = 1000/dist
-            local size = Vector2.new(10*scale, 15*scale)
-            ESPDrawings[player].Box.Size = size
-            ESPDrawings[player].Box.Position = Vector2.new(pos.X - size.X/2, pos.Y - size.Y/2)
-            ESPDrawings[player].Box.Visible = true
-            
-            ESPDrawings[player].Name.Position = Vector2.new(pos.X, pos.Y - size.Y/2 - 15)
-            ESPDrawings[player].Name.Text = player.Name
-            ESPDrawings[player].Name.Visible = true
-        else
-            ESPDrawings[player].Box.Visible = false
-            ESPDrawings[player].Name.Visible = false
-        end
+        UpdateOutline(player, char)
     end
 end
 
@@ -221,12 +261,13 @@ RunService.RenderStepped:Connect(function()
 end)
 
 Players.PlayerRemoving:Connect(function(player)
-    if ESPDrawings[player] then
-        ESPDrawings[player].Box:Remove()
-        ESPDrawings[player].Name:Remove()
-        ESPDrawings[player] = nil
+    if ESPOutlines[player] then
+        for _, line in pairs(ESPOutlines[player]) do
+            line:Remove()
+        end
+        ESPOutlines[player] = nil
     end
 end)
 
 UpdateFOVCircle()
-print("PlatoBoost Loaded | Q: Aim Toggle | L: UI Toggle") 
+print("PlatoBoost Loaded | ESP: Outline | Q: Aim Toggle | L: UI Toggle") 
