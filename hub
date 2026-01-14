@@ -1,4 +1,4 @@
--- PlatoBoost Hub (ESP с нормальным боксом)
+-- PlatoBoost Hub (ESP без дистанции)
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -125,20 +125,16 @@ local UpdateESP = function()
         
         local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
         if onScreen then
-            -- ФИКСИРОВАННЫЙ РАЗМЕР БОКСА (под рост игрока)
-            local height = 4 -- высота в студах
-            local width = 2 -- ширина в студах
+            local baseSize = 15
+            local sizeMultiplier = 1000 / math.max(dist, 10)
+            local boxSize = math.clamp(baseSize * sizeMultiplier / 100, 20, 80)
             
-            -- Проекция размера на экран
-            local screenHeight = (height / dist) * 100
-            local screenWidth = (width / dist) * 100
-            
-            ESPDrawings[player].Box.Size = Vector2.new(screenWidth, screenHeight)
-            ESPDrawings[player].Box.Position = Vector2.new(pos.X - screenWidth/2, pos.Y - screenHeight/2)
+            ESPDrawings[player].Box.Size = Vector2.new(boxSize, boxSize * 1.5)
+            ESPDrawings[player].Box.Position = Vector2.new(pos.X - boxSize/2, pos.Y - boxSize * 1.5/2)
             ESPDrawings[player].Box.Visible = true
             
-            ESPDrawings[player].Name.Position = Vector2.new(pos.X, pos.Y - screenHeight/2 - 15)
-            ESPDrawings[player].Name.Text = player.Name
+            ESPDrawings[player].Name.Position = Vector2.new(pos.X, pos.Y - boxSize * 1.5/2 - 10)
+            ESPDrawings[player].Name.Text = player.Name -- БЕЗ ДИСТАНЦИИ
             ESPDrawings[player].Name.Visible = true
         else
             ESPDrawings[player].Box.Visible = false
@@ -237,4 +233,4 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 UpdateFOVCircle()
-print("PlatoBoost Loaded | ESP: Normal Box | Q: Aim Toggle | L: UI Toggle") 
+print("PlatoBoost Loaded | Q: Aim Toggle | L: UI Toggle") 
