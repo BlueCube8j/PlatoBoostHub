@@ -1,7 +1,6 @@
--- Platoboost Hub (Aim Lock через оружие)
+-- Platoboost Hub (Только обводка и Aim)
 print("Platoboost Hub Activated!")
 
--- Сервисы
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
@@ -13,49 +12,46 @@ local Settings = {
     ESP = true,
     AimLock = true,
     AimKey = "Q",
-    MaxDistance = 99,
+    MaxDistance = 200,
     AimFOV = 60,
-    TeamCheck = false,
-    Smoothness = 0.3,
-    Prediction = 0.15
+    TeamCheck = false
 }
 
--- Кэши
-local ESPCache = {}
-local PlayerList = Players:GetPlayers()
+-- Только обводка (Highlight)
+local Highlights = {}
 
--- Поиск оружия в рюкзаке
-local function FindWeapon()
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    local character = LocalPlayer.Character
-    
-    if character then
-        for _, tool in pairs(character:GetChildren()) do
-            if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
-                return tool
-            end
-        end
-    end
-    
-    if backpack then
-        for _, tool in pairs(backpack:GetChildren()) do
-            if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
-                return tool
-            end
-        end
-    end
-    
-    return nil
+-- FOV круг (как в примере)
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Thickness = 1
+FOVCircle.Transparency = 0.5
+FOVCircle.Filled = false
+FOVCircle.Radius = Settings.AimFOV
+FOVCircle.Visible = Settings.AimLock
+
+-- Обновление позиции FOV круга
+local function updateFOVCircle()
+    local viewportSize = Camera.ViewportSize
+    FOVCircle.Position = Vector2.new(viewportSize.X / 2, viewportSize.Y / 2)
+    FOVCircle.Visible = Settings.AimLock
 end
 
--- Поиск цели
-local function GetClosestTarget()
+-- Проверка видимости (как в примере)
+local function isTargetVisible(targetPart)
+    local origin = Camera.CFrame.Position
+    local direction = (targetPart.Position - origin).Unit * 1000
+    local ray = Ray.new(origin, direction)
+    local hit, position = workspace:FindPartOnRayWithIgnoreList(ray, {LocalPlayer.Character})
+    return hit and hit:IsDescendantOf(targetPart.Parent)
+end
+
+-- Поиск ближайшего игрока в FOV
+local function getClosestPlayer()
     local closest = nil
     local closestDist = Settings.AimFOV
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    
-    for i = 1, #PlayerList do
-        local player = PlayerList[i]
+
+    for _, player in ipairs(Players:GetPlayers()) do
         if player == LocalPlayer then continue end
         if Settings.TeamCheck and player.Team == LocalPlayer.Team then continue end
         
@@ -66,71 +62,101 @@ local function GetClosestTarget()
         local humanoid = char:FindFirstChild("Humanoid")
         if not head or not humanoid or humanoid.Health <= 0 then continue end
         
-        local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
         if not onScreen then continue end
         
-        local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-        if dist < closestDist then
-            local root = char:FindFirstChild("HumanoidRootPart")
-            local predictedPos = head.Position
-            if root then
-                predictedPos = head.Position + (root.Velocity * Settings.Prediction)
-            end
-            
-            closest = {
-                Player = player,
-                Head = head,
-                PredictedPos = predictedPos,
-                Distance = dist
-            }
-            closestDist = dist
+        local distance = (head.Position - Camera.CFrame.Position).Magnitude
+        if distance > Settings.MaxDistance then continue end
+        
+        if not isTargetVisible(head) then continue end
+        
+        local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+        if distToCenter < closestDist then
+            closest = player
+            closestDist = distToCenter
         end
     end
     
     return closest
 end
 
--- Aim Lock через Humanoid (для игр без оружия)
-local function AimAtTarget(target)
-    if not target then return end
-    
-    local humanoid = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid")
-    if not humanoid then return end
-    
-    -- Поворот персонажа к цели
-    local direction = (target.PredictedPos - LocalPlayer.Character.HumanoidRootPart.Position).Unit
-    humanoid:MoveTo(LocalPlayer.Character.HumanoidRootPart.Position + direction * 2)
+-- Обновление ESP (только обводка)
+local function updateESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        
+        local char = player.Character
+        if not char then
+            if Highlights[player] then
+                Highlights[player].Enabled = false
+            end
+            continue
+        end
+        
+        local humanoid = char:FindFirstChild("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then
+            if Highlights[player] then
+                Highlights[player].Enabled = false
+            end
+            continue
+        end
+        
+        local distance = (char.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+        if distance > Settings.MaxDistance then
+            if Highlights[player] then
+                Highlights[player].Enabled = false
+            end
+            continue
+        end
+        
+        if not Highlights[player] then
+            local highlight = Instance.new("Highlight")
+            highlight.FillColor = Color3.fromRGB(255, 255, 255)
+            highlight.FillTransparency = 0.9
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.OutlineTransparency = 0
+            highlight.Parent = char
+            Highlights[player] = highlight
+        end
+        
+        Highlights[player].Enabled = Settings.ESP
+    end
 end
 
--- Aim Lock через Tool (если есть оружие)
-local function AimWithWeapon(target)
-    if not target then return end
-    
-    local weapon = FindWeapon()
-    if not weapon then return end
-    
-    -- Для некоторых игр можно менять свойство Target
-    if weapon:FindFirstChild("Target") then
-        weapon.Target.Value = target.PredictedPos
-    end
-    
-    -- Для Arsenal-like игр
-    if weapon:FindFirstChild("Fire") then
-        local args = {
-            target.PredictedPos,
-            target.Head,
-            weapon.Handle.CFrame
-        }
-        weapon.Fire:FireServer(unpack(args))
-    end
-end
+-- Aim Lock (как в примере)
+local Aiming = false
 
--- GUI (упрощенное)
+UIS.InputBegan:Connect(function(input)
+    if input.KeyCode.Name == Settings.AimKey and Settings.AimLock then
+        Aiming = true
+        
+        while Aiming and Settings.AimLock do
+            local target = getClosestPlayer()
+            if target and target.Character then
+                local head = target.Character:FindFirstChild("Head")
+                if head then
+                    -- Мгновенный поворот камеры (как в примере)
+                    local targetCFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+                    Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, 1)
+                end
+            end
+            RunService.RenderStepped:Wait()
+        end
+    end
+end)
+
+UIS.InputEnded:Connect(function(input)
+    if input.KeyCode.Name == Settings.AimKey then
+        Aiming = false
+    end
+end)
+
+-- GUI меню
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game:GetService("CoreGui")
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 120)
+MainFrame.Size = UDim2.new(0, 180, 0, 100)
 MainFrame.Position = UDim2.new(0, 10, 0, 10)
 MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MainFrame.BackgroundTransparency = 0.2
@@ -158,16 +184,6 @@ AimBtn.Font = Enum.Font.Code
 AimBtn.TextSize = 14
 AimBtn.Parent = MainFrame
 
-local KeyLabel = Instance.new("TextLabel")
-KeyLabel.Size = UDim2.new(1, -10, 0, 25)
-KeyLabel.Position = UDim2.new(0, 5, 0, 85)
-KeyLabel.BackgroundTransparency = 1
-KeyLabel.Text = "Key: " .. Settings.AimKey
-KeyLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyLabel.Font = Enum.Font.Code
-KeyLabel.TextSize = 12
-KeyLabel.Parent = MainFrame
-
 ESPBtn.MouseButton1Click:Connect(function()
     Settings.ESP = not Settings.ESP
     ESPBtn.Text = "ESP: " .. (Settings.ESP and "ON" or "OFF")
@@ -178,100 +194,23 @@ AimBtn.MouseButton1Click:Connect(function()
     Settings.AimLock = not Settings.AimLock
     AimBtn.Text = "AIM: " .. (Settings.AimLock and "ON" or "OFF")
     AimBtn.BackgroundColor3 = Settings.AimLock and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 80)
+    FOVCircle.Visible = Settings.AimLock
 end)
 
--- ESP
-local function UpdateESP()
-    for i = 1, #PlayerList do
-        local player = PlayerList[i]
-        if player == LocalPlayer then continue end
-        
-        local char = player.Character
-        if not char then
-            if ESPCache[player] then
-                ESPCache[player].Enabled = false
-            end
-            continue
-        end
-        
-        local humanoid = char:FindFirstChild("Humanoid")
-        if humanoid and humanoid.Health <= 0 then
-            if ESPCache[player] then
-                ESPCache[player].Enabled = false
-            end
-            continue
-        end
-        
-        local root = char:FindFirstChild("HumanoidRootPart")
-        if not root then continue end
-        
-        local distance = (root.Position - Camera.CFrame.Position).Magnitude
-        if distance > Settings.MaxDistance then
-            if ESPCache[player] then
-                ESPCache[player].Enabled = false
-            end
-            continue
-        end
-        
-        if not ESPCache[player] then
-            local highlight = Instance.new("Highlight")
-            highlight.FillColor = Color3.fromRGB(255, 255, 255)
-            highlight.FillTransparency = 0.9
-            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-            highlight.OutlineTransparency = 0
-            highlight.Parent = char
-            ESPCache[player] = highlight
-        end
-        
-        ESPCache[player].Enabled = Settings.ESP
-    end
-end
-
--- Aim Lock
-local Aiming = false
-
-UIS.InputBegan:Connect(function(input)
-    if input.KeyCode.Name == Settings.AimKey and Settings.AimLock then
-        Aiming = true
-        
-        spawn(function()
-            while Aiming and Settings.AimLock do
-                local target = GetClosestTarget()
-                if target then
-                    -- Пробуем оба метода
-                    AimWithWeapon(target)
-                    AimAtTarget(target)
-                end
-                RunService.RenderStepped:Wait()
-            end
-        end)
-    end
-end)
-
-UIS.InputEnded:Connect(function(input)
-    if input.KeyCode.Name == Settings.AimKey then
-        Aiming = false
-    end
-end)
-
--- Обновление
-Players.PlayerAdded:Connect(function(player)
-    PlayerList = Players:GetPlayers()
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-    PlayerList = Players:GetPlayers()
-    if ESPCache[player] then
-        ESPCache[player]:Destroy()
-        ESPCache[player] = nil
-    end
-end)
-
+-- Основной цикл
 RunService.RenderStepped:Connect(function()
+    updateFOVCircle()
     if Settings.ESP then
-        UpdateESP()
+        updateESP()
+    end
+end)
+
+-- Очистка
+Players.PlayerRemoving:Connect(function(player)
+    if Highlights[player] then
+        Highlights[player]:Destroy()
+        Highlights[player] = nil
     end
 end)
 
 print("Platoboost Hub загружен. Нажми " .. Settings.AimKey .. " для Aim Lock.")
-print("Aim Lock будет работать только в играх с оружием/персонажем.") 
