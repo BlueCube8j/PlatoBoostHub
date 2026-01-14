@@ -12,7 +12,7 @@ local Config = {
         Enabled = true,
         Key = "Q",
         FOV = 60,
-        Smoothness = 1, -- 1 = мгновенный поворот
+        Smoothness = 1,
         Prediction = 0.15,
         TeamCheck = false,
         MaxDistance = 250
@@ -23,14 +23,33 @@ local Config = {
         UpdateRate = 0.2,
         OutlineColor = Color3.new(1, 1, 1),
         FillTransparency = 0.9
+    },
+    UI = {
+        ToggleKey = "L"
     }
 }
 
 -- State
-local Aiming = false
+local AimActive = false
 local CurrentTarget = nil
 local Highlights = {}
 local LastESPUpdate = 0
+local UIVisible = true
+
+-- GUI Elements
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PlatoBoostGUI"
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 180)
+MainFrame.Position = UDim2.new(0, 10, 0, 10)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+MainFrame.BackgroundTransparency = 0.15
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Visible = UIVisible
+MainFrame.Parent = ScreenGui
 
 -- FOV Circle
 local FOVCircle = Drawing.new("Circle")
@@ -87,21 +106,19 @@ local function GetClosestTarget()
     return closest
 end
 
--- AIM LOCK FIXED (Мгновенный поворот камеры)
+-- AIM LOCK FIXED
 local function AimAtTarget(target)
     if not target or not target.Character then return end
     
     local head = target.Character:FindFirstChild("Head")
     if not head then return end
     
-    -- Предсказание движения
     local root = target.Character:FindFirstChild("HumanoidRootPart")
     local predictedPosition = head.Position
     if root then
         predictedPosition = head.Position + (root.Velocity * Config.AimLock.Prediction)
     end
     
-    -- Мгновенный поворот камеры
     local cameraPos = Camera.CFrame.Position
     local newCFrame = CFrame.new(cameraPos, predictedPosition)
     Camera.CFrame = newCFrame
@@ -158,46 +175,34 @@ local function UpdateESP()
     end
 end
 
--- Keybind handling
+-- Toggle UI on L
 UIS.InputBegan:Connect(function(input)
+    -- Toggle UI
+    if input.KeyCode.Name == Config.UI.ToggleKey then
+        UIVisible = not UIVisible
+        MainFrame.Visible = UIVisible
+        print("UI: " .. (UIVisible and "ON" or "OFF"))
+    end
+    
+    -- Toggle Aim Lock
     if input.KeyCode.Name == Config.AimLock.Key and Config.AimLock.Enabled then
-        Aiming = true
-        CurrentTarget = GetClosestTarget()
+        AimActive = not AimActive
         
-        spawn(function()
-            while Aiming and Config.AimLock.Enabled do
-                if CurrentTarget then
-                    AimAtTarget(CurrentTarget)
-                else
-                    CurrentTarget = GetClosestTarget()
-                end
-                RunService.RenderStepped:Wait()
+        if AimActive then
+            CurrentTarget = GetClosestTarget()
+            if CurrentTarget then
+                print("Aim Lock: ON (цель: " .. CurrentTarget.Name .. ")")
+            else
+                print("Aim Lock: ON (цель не найдена)")
             end
-        end)
+        else
+            CurrentTarget = nil
+            print("Aim Lock: OFF")
+        end
     end
 end)
 
-UIS.InputEnded:Connect(function(input)
-    if input.KeyCode.Name == Config.AimLock.Key then
-        Aiming = false
-        CurrentTarget = nil
-    end
-end)
-
--- GUI
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "PlatoBoostGUI"
-ScreenGui.Parent = game:GetService("CoreGui")
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 180)
-MainFrame.Position = UDim2.new(0, 10, 0, 10)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-MainFrame.BackgroundTransparency = 0.15
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
-
+-- GUI Setup
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = MainFrame
@@ -289,6 +294,15 @@ RunService.RenderStepped:Connect(function()
     if Config.ESP.Enabled then
         UpdateESP()
     end
+    
+    -- Auto aim when active
+    if AimActive and Config.AimLock.Enabled then
+        if CurrentTarget and CurrentTarget.Character then
+            AimAtTarget(CurrentTarget)
+        else
+            CurrentTarget = GetClosestTarget()
+        end
+    end
 end)
 
 -- Cleanup
@@ -301,4 +315,6 @@ end)
 
 -- Initialization
 UpdateFOVCircle()
-print("PlatoBoost Hub Loaded! Aim Key: " .. Config.AimLock.Key) 
+print("PlatoBoost Hub Loaded!")
+print("Aim Key: " .. Config.AimLock.Key .. " (Toggle)")
+print("UI Toggle: " .. Config.UI.ToggleKey) 
