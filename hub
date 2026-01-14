@@ -1,184 +1,204 @@
--- Platoboost Hub для Android Roblox (работает на мобильном)
-
--- Сообщение активации
-local gui = game:GetService("CoreGui")
-local text = Instance.new("TextLabel")
-text.Text = "Platoboost Hub Activated!"
-text.Size = UDim2.new(0, 300, 0, 40)
-text.Position = UDim2.new(0.5, -150, 0, 10)
-text.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-text.TextColor3 = Color3.fromRGB(255, 255, 255)
-text.Font = Enum.Font.Code
-text.TextSize = 16
-text.Parent = gui
-
-task.wait(3)
-text:Destroy()
+-- Platoboost Hub (Только обводка и Aim)
+print("Platoboost Hub Activated!")
 
 -- Сервисы
-local players = game:GetService("Players")
-local lp = players.LocalPlayer
-local camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local UIS = game:GetService("UserInputService")
 
 -- Настройки
-local esp = true
-local aimlock = true
-local aimkey = "Q"
-local maxdist = 99
+local Settings = {
+    ESP = true,
+    AimLock = true,
+    AimKey = "Q",
+    MaxDistance = 99,
+    AimFOV = 60,
+    TeamCheck = false
+}
 
--- ESP через Part с Outline
-local function createESP(player)
-    if player == lp then return end
-    
-    local char = player.Character
-    if not char then return end
-    
-    local box = Instance.new("Part")
-    box.Name = "ESPBox"
-    box.Size = Vector3.new(4, 6, 4)
-    box.Transparency = 0.8
-    box.Color = Color3.new(1, 1, 1)
-    box.Material = Enum.Material.Neon
-    box.CanCollide = false
-    box.Anchored = true
-    box.Parent = workspace
-    
-    local weld = Instance.new("Weld")
-    weld.Part0 = char:FindFirstChild("HumanoidRootPart")
-    weld.Part1 = box
-    weld.C0 = CFrame.new(0, 0, 0)
-    weld.Parent = box
-    
-    return box
+-- Только Highlight для обводки
+local ESPHighlights = {}
+
+-- Aim
+local AimTarget = nil
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Visible = Settings.AimLock
+FOVCircle.Radius = Settings.AimFOV
+FOVCircle.Color = Color3.fromRGB(255, 255, 255)
+FOVCircle.Thickness = 1
+FOVCircle.Transparency = 0.5
+FOVCircle.Filled = false
+FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+-- Обновляем FOV круг
+function UpdateFOVCircle()
+    FOVCircle.Visible = Settings.AimLock
+    FOVCircle.Radius = Settings.AimFOV
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 end
 
--- Aim Lock через тап по экрану
-local aiming = false
-local aimbutton = Instance.new("TextButton")
-aimbutton.Text = "AIM"
-aimbutton.Size = UDim2.new(0, 80, 0, 80)
-aimbutton.Position = UDim2.new(1, -90, 1, -90)
-aimbutton.BackgroundColor3 = Color3.fromRGB(60, 180, 80)
-aimbutton.TextColor3 = Color3.new(1, 1, 1)
-aimbutton.Font = Enum.Font.Code
-aimbutton.TextSize = 14
-aimbutton.Parent = gui
+-- Создаем GUI меню
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PlatoboostHub"
+ScreenGui.Parent = game:GetService("CoreGui")
 
-aimbutton.MouseButton1Down:Connect(function()
-    aiming = true
-    while aiming and aimlock do
-        -- Найти ближайшего игрока
-        local closest = nil
-        local dist = 9999
-        
-        for _, p in pairs(players:GetPlayers()) do
-            if p ~= lp and p.Character then
-                local head = p.Character:FindFirstChild("Head")
-                if head then
-                    local d = (head.Position - camera.CFrame.p).Magnitude
-                    if d < dist and d < maxdist then
-                        closest = p
-                        dist = d
-                    end
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 250, 0, 150)
+MainFrame.Position = UDim2.new(0, 10, 0, 10)
+MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+MainFrame.BackgroundTransparency = 0.2
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+-- Заголовок
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.Text = "Platoboost"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.Code
+Title.TextSize = 18
+Title.Parent = MainFrame
+
+-- ESP Toggle
+local ESPToggle = Instance.new("TextButton")
+ESPToggle.Size = UDim2.new(1, -20, 0, 40)
+ESPToggle.Position = UDim2.new(0, 10, 0, 40)
+ESPToggle.BackgroundColor3 = Settings.ESP and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
+ESPToggle.Text = "ESP [" .. (Settings.ESP and "ON" or "OFF") .. "]"
+ESPToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+ESPToggle.Font = Enum.Font.Code
+ESPToggle.TextSize = 16
+ESPToggle.Parent = MainFrame
+
+local ESPCorner = Instance.new("UICorner")
+ESPCorner.CornerRadius = UDim.new(0, 6)
+ESPCorner.Parent = ESPToggle
+
+-- Aim Lock Toggle
+local AimToggle = Instance.new("TextButton")
+AimToggle.Size = UDim2.new(1, -20, 0, 40)
+AimToggle.Position = UDim2.new(0, 10, 0, 90)
+AimToggle.BackgroundColor3 = Settings.AimLock and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
+AimToggle.Text = "AIM LOCK [" .. (Settings.AimLock and "ON" or "OFF") .. "]"
+AimToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+AimToggle.Font = Enum.Font.Code
+AimToggle.TextSize = 16
+AimToggle.Parent = MainFrame
+
+local AimCorner = Instance.new("UICorner")
+AimCorner.CornerRadius = UDim.new(0, 6)
+AimCorner.Parent = AimToggle
+
+-- Обработка переключателей
+ESPToggle.MouseButton1Click:Connect(function()
+    Settings.ESP = not Settings.ESP
+    ESPToggle.Text = "ESP [" .. (Settings.ESP and "ON" or "OFF") .. "]"
+    ESPToggle.BackgroundColor3 = Settings.ESP and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
+    
+    for _, highlight in pairs(ESPHighlights) do
+        highlight.Enabled = Settings.ESP
+    end
+end)
+
+AimToggle.MouseButton1Click:Connect(function()
+    Settings.AimLock = not Settings.AimLock
+    AimToggle.Text = "AIM LOCK [" .. (Settings.AimLock and "ON" or "OFF") .. "]"
+    AimToggle.BackgroundColor3 = Settings.AimLock and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
+    UpdateFOVCircle()
+end)
+
+-- Функция ESP (только обводка Highlight)
+function UpdateESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local distance = (player.Character.HumanoidRootPart.Position - Camera.CFrame.Position).Magnitude
+            
+            if distance <= Settings.MaxDistance then
+                if not ESPHighlights[player] then
+                    local highlight = Instance.new("Highlight")
+                    highlight.FillColor = Color3.fromRGB(255, 255, 255)
+                    highlight.FillTransparency = 0.9
+                    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    highlight.OutlineTransparency = 0
+                    highlight.Parent = player.Character
+                    ESPHighlights[player] = highlight
                 end
+                ESPHighlights[player].Enabled = Settings.ESP
+            elseif ESPHighlights[player] then
+                ESPHighlights[player].Enabled = false
             end
+        elseif ESPHighlights[player] then
+            ESPHighlights[player].Enabled = false
         end
-        
-        -- Целиться в голову
-        if closest and closest.Character then
-            local head = closest.Character:FindFirstChild("Head")
+    end
+end
+
+-- Aim Lock функция
+function GetClosestPlayer()
+    local closest = nil
+    local maxDist = Settings.AimFOV
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local head = player.Character:FindFirstChild("Head")
             if head then
-                camera.CFrame = CFrame.new(camera.CFrame.p, head.Position)
+                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
+                    if dist <= maxDist then
+                        if Settings.TeamCheck and player.Team == LocalPlayer.Team then
+                            continue
+                        end
+                        closest = player
+                        maxDist = dist
+                    end
+                end
             end
         end
-        
-        task.wait()
     end
-end)
+    return closest
+end
 
-aimbutton.MouseButton1Up:Connect(function()
-    aiming = false
-end)
-
--- GUI меню
-local menu = Instance.new("Frame")
-menu.Size = UDim2.new(0, 200, 0, 150)
-menu.Position = UDim2.new(0, 10, 0, 60)
-menu.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-menu.BorderSizePixel = 0
-menu.Active = true
-menu.Draggable = true
-menu.Parent = gui
-
-local title = Instance.new("TextLabel")
-title.Text = "Platoboost"
-title.Size = UDim2.new(1, 0, 0, 30)
-title.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-title.TextColor3 = Color3.new(1, 1, 1)
-title.Font = Enum.Font.Code
-title.TextSize = 18
-title.Parent = menu
-
--- ESP toggle
-local espBtn = Instance.new("TextButton")
-espBtn.Text = "ESP: ON"
-espBtn.Size = UDim2.new(0.8, 0, 0, 30)
-espBtn.Position = UDim2.new(0.1, 0, 0, 40)
-espBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 80)
-espBtn.TextColor3 = Color3.new(1, 1, 1)
-espBtn.Font = Enum.Font.Code
-espBtn.TextSize = 14
-espBtn.Parent = menu
-
-espBtn.MouseButton1Click:Connect(function()
-    esp = not esp
-    espBtn.Text = "ESP: " .. (esp and "ON" or "OFF")
-    espBtn.BackgroundColor3 = esp and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 80)
-end)
-
--- Aim toggle
-local aimBtn = Instance.new("TextButton")
-aimBtn.Text = "AIM: ON"
-aimBtn.Size = UDim2.new(0.8, 0, 0, 30)
-aimBtn.Position = UDim2.new(0.1, 0, 0, 80)
-aimBtn.BackgroundColor3 = Color3.fromRGB(60, 180, 80)
-aimBtn.TextColor3 = Color3.new(1, 1, 1)
-aimBtn.Font = Enum.Font.Code
-aimBtn.TextSize = 14
-aimBtn.Parent = menu
-
-aimBtn.MouseButton1Click:Connect(function()
-    aimlock = not aimlock
-    aimBtn.Text = "AIM: " .. (aimlock and "ON" or "OFF")
-    aimBtn.BackgroundColor3 = aimlock and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 80)
-end)
-
--- Основной цикл ESP
-local espBoxes = {}
-
-game:GetService("RunService").RenderStepped:Connect(function()
-    for _, p in pairs(players:GetPlayers()) do
-        if p ~= lp and p.Character then
-            local root = p.Character:FindFirstChild("HumanoidRootPart")
-            if root and (root.Position - camera.CFrame.p).Magnitude < maxdist then
-                if esp then
-                    if not espBoxes[p] then
-                        espBoxes[p] = createESP(p)
-                    else
-                        espBoxes[p].Parent = workspace
-                    end
-                else
-                    if espBoxes[p] then
-                        espBoxes[p].Parent = nil
-                    end
-                end
-            else
-                if espBoxes[p] then
-                    espBoxes[p].Parent = nil
-                end
+-- Aim Lock при зажатии Q
+UIS.InputBegan:Connect(function(input)
+    if input.KeyCode.Name == Settings.AimKey and Settings.AimLock then
+        AimTarget = GetClosestPlayer()
+        if AimTarget and AimTarget.Character then
+            local head = AimTarget.Character:FindFirstChild("Head")
+            if head then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
             end
         end
     end
 end)
 
-print("Готово. Нажми кнопку AIM на экране для прицеливания.")
+-- Основной цикл
+RunService.RenderStepped:Connect(function()
+    -- ESP обводка
+    if Settings.ESP then
+        UpdateESP()
+    end
+    
+    -- Обновление FOV круга
+    UpdateFOVCircle()
+end)
+
+-- Очистка
+Players.PlayerRemoving:Connect(function(player)
+    if ESPHighlights[player] then
+        ESPHighlights[player]:Destroy()
+        ESPHighlights[player] = nil
+    end
+end)
+
+print("Platoboost Hub загружен! Нажми " .. Settings.AimKey .. " для Aim Lock.")
