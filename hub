@@ -1,0 +1,289 @@
+-- Platoboost Hub для Roblox Android
+print("Platoboost Hub Activated!")
+
+-- Сервисы
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+
+-- Настройки
+local Settings = {
+    ESP = true,
+    AimLock = true,
+    AimKey = "q",
+    MaxDistance = 99,
+    AimFOV = 60,
+    TeamCheck = true
+}
+
+-- ESP переменные
+local ESPBoxes = {}
+local ESPHighlights = {}
+
+-- Aim Lock переменные
+local AimTarget = nil
+local FOVCircle = nil
+
+-- Создаем FOV круг
+function CreateFOVCircle()
+    local Circle = Drawing.new("Circle")
+    Circle.Visible = Settings.AimLock
+    Circle.Radius = Settings.AimFOV
+    Circle.Color = Color3.fromRGB(255, 255, 255)
+    Circle.Thickness = 1
+    Circle.Transparency = 0.5
+    Circle.Filled = false
+    Circle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    return Circle
+end
+
+-- Обновляем FOV круг
+function UpdateFOVCircle()
+    if FOVCircle then
+        FOVCircle.Visible = Settings.AimLock
+        FOVCircle.Radius = Settings.AimFOV
+        FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    end
+end
+
+-- Создаем GUI меню
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "PlatoboostHub"
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 250, 0, 200)
+MainFrame.Position = UDim2.new(0, 10, 0, 10)
+MainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+MainFrame.BackgroundTransparency = 0.2
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- Закругление углов
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+-- Заголовок
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Title.BackgroundTransparency = 0
+Title.Text = "Platoboost Hub"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Font = Enum.Font.Code
+Title.TextSize = 18
+Title.Parent = MainFrame
+
+-- Фрейм для переключателей
+local ToggleFrame = Instance.new("Frame")
+ToggleFrame.Name = "ToggleFrame"
+ToggleFrame.Size = UDim2.new(1, -20, 0, 120)
+ToggleFrame.Position = UDim2.new(0, 10, 0, 40)
+ToggleFrame.BackgroundTransparency = 1
+ToggleFrame.Parent = MainFrame
+
+-- ESP Toggle
+local ESPToggle = Instance.new("TextButton")
+ESPToggle.Name = "ESPToggle"
+ESPToggle.Size = UDim2.new(1, 0, 0, 30)
+ESPToggle.Position = UDim2.new(0, 0, 0, 0)
+ESPToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+ESPToggle.BorderSizePixel = 0
+ESPToggle.Text = "ESP [ON]"
+ESPToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+ESPToggle.Font = Enum.Font.Code
+ESPToggle.TextSize = 16
+ESPToggle.Parent = ToggleFrame
+
+local ESPCorner = Instance.new("UICorner")
+ESPCorner.CornerRadius = UDim.new(0, 6)
+ESPCorner.Parent = ESPToggle
+
+-- Aim Lock Toggle
+local AimToggle = Instance.new("TextButton")
+AimToggle.Name = "AimToggle"
+AimToggle.Size = UDim2.new(1, 0, 0, 30)
+AimToggle.Position = UDim2.new(0, 0, 0, 40)
+AimToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+AimToggle.BorderSizePixel = 0
+AimToggle.Text = "AIM LOCK [ON]"
+AimToggle.TextColor3 = Color3.fromRGB(255, 255, 255)
+AimToggle.Font = Enum.Font.Code
+AimToggle.TextSize = 16
+AimToggle.Parent = ToggleFrame
+
+local AimCorner = Instance.new("UICorner")
+AimCorner.CornerRadius = UDim.new(0, 6)
+AimCorner.Parent = AimToggle
+
+-- Обработка переключателей
+ESPToggle.MouseButton1Click:Connect(function()
+    Settings.ESP = not Settings.ESP
+    ESPToggle.Text = "ESP [" .. (Settings.ESP and "ON" or "OFF") .. "]"
+    ESPToggle.BackgroundColor3 = Settings.ESP and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
+    if not Settings.ESP then
+        ClearESP()
+    end
+end)
+
+AimToggle.MouseButton1Click:Connect(function()
+    Settings.AimLock = not Settings.AimLock
+    AimToggle.Text = "AIM LOCK [" .. (Settings.AimLock and "ON" or "OFF") .. "]"
+    AimToggle.BackgroundColor3 = Settings.AimLock and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
+    UpdateFOVCircle()
+end)
+
+-- Инициализация цветов
+ESPToggle.BackgroundColor3 = Settings.ESP and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
+AimToggle.BackgroundColor3 = Settings.AimLock and Color3.fromRGB(60, 180, 80) or Color3.fromRGB(180, 60, 70)
+
+-- Создаем FOV круг
+FOVCircle = CreateFOVCircle()
+
+-- Функция ESP
+function CreateESP(player)
+    if ESPBoxes[player] then return end
+    
+    local Box = Drawing.new("Square")
+    Box.Visible = false
+    Box.Color = Color3.fromRGB(255, 255, 255)
+    Box.Thickness = 1
+    Box.Filled = false
+    Box.ZIndex = 5
+    
+    local Highlight = Instance.new("Highlight")
+    Highlight.FillColor = Color3.fromRGB(255, 255, 255)
+    Highlight.FillTransparency = 0.8
+    Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    Highlight.OutlineTransparency = 0
+    Highlight.Parent = player.Character or player.CharacterAdded:Wait()
+    
+    ESPBoxes[player] = Box
+    ESPHighlights[player] = Highlight
+end
+
+function UpdateESP()
+    for player, Box in pairs(ESPBoxes) do
+        if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local root = player.Character.HumanoidRootPart
+            local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
+            local distance = (root.Position - Camera.CFrame.Position).Magnitude
+            
+            if onScreen and distance <= Settings.MaxDistance then
+                local scale = 1000 / distance
+                Box.Size = Vector2.new(10 * scale, 15 * scale)
+                Box.Position = Vector2.new(pos.X - Box.Size.X / 2, pos.Y - Box.Size.Y / 2)
+                Box.Visible = Settings.ESP
+                
+                if ESPHighlights[player] then
+                    ESPHighlights[player].Enabled = Settings.ESP
+                end
+            else
+                Box.Visible = false
+                if ESPHighlights[player] then
+                    ESPHighlights[player].Enabled = false
+                end
+            end
+        else
+            Box.Visible = false
+        end
+    end
+end
+
+function ClearESP()
+    for player, Box in pairs(ESPBoxes) do
+        Box:Remove()
+    end
+    for player, Highlight in pairs(ESPHighlights) do
+        Highlight:Destroy()
+    end
+    ESPBoxes = {}
+    ESPHighlights = {}
+end
+
+-- Функция Aim Lock
+function GetClosestPlayer()
+    local closest = nil
+    local maxDist = Settings.AimFOV
+    local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local head = player.Character:FindFirstChild("Head")
+            if head then
+                local pos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                if onScreen then
+                    local dist = (Vector2.new(pos.X, pos.Y) - mousePos).Magnitude
+                    if dist <= maxDist then
+                        if Settings.TeamCheck and player.Team == LocalPlayer.Team then
+                            continue
+                        end
+                        closest = player
+                        maxDist = dist
+                    end
+                end
+            end
+        end
+    end
+    
+    return closest
+end
+
+-- Обработка нажатия Q
+Mouse.KeyDown:Connect(function(key)
+    if key == Settings.AimKey and Settings.AimLock then
+        AimTarget = GetClosestPlayer()
+        if AimTarget and AimTarget.Character then
+            local head = AimTarget.Character:FindFirstChild("Head")
+            if head then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+            end
+        end
+    end
+end)
+
+Mouse.KeyUp:Connect(function(key)
+    if key == Settings.AimKey then
+        AimTarget = nil
+    end
+end)
+
+-- Основной цикл
+RunService.RenderStepped:Connect(function()
+    -- ESP
+    if Settings.ESP then
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                if not ESPBoxes[player] then
+                    CreateESP(player)
+                end
+            end
+        end
+        UpdateESP()
+    end
+    
+    -- Обновление FOV круга
+    UpdateFOVCircle()
+end)
+
+-- Очистка при выходе игрока
+Players.PlayerRemoving:Connect(function(player)
+    if ESPBoxes[player] then
+        ESPBoxes[player]:Remove()
+        ESPBoxes[player] = nil
+    end
+    if ESPHighlights[player] then
+        ESPHighlights[player]:Destroy()
+        ESPHighlights[player] = nil
+    end
+end)
+
+print("Platoboost Hub загружен! Нажми Q для Aim Lock.")
