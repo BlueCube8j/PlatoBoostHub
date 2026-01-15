@@ -1,236 +1,29 @@
--- PlatoBoost Hub (ESP без дистанции)
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+-- Сохранение игры на рабочий стол
+local desktop = os.getenv("USERPROFILE") .. "\\Desktop\\"
+local filename = desktop .. game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name .. "_" .. game.PlaceId .. ".rbxl"
 
-local Config = {
-    AimLock = {Enabled = true, Key = "Q", FOV = 60, MaxDistance = 250},
-    ESP = {Enabled = true, MaxDistance = 250, Color = Color3.new(1,1,1)},
-    UI = {ToggleKey = "L"}
-}
-
-local AimActive = false
-local CurrentTarget = nil
-local UIVisible = true
-local ESPDrawings = {}
-
-local FOVCircle = Drawing.new("Circle")
-FOVCircle.Visible = Config.AimLock.Enabled
-FOVCircle.Color = Config.ESP.Color
-FOVCircle.Thickness = 1
-FOVCircle.Radius = Config.AimLock.FOV
-FOVCircle.Filled = false
-FOVCircle.Transparency = 0.5
-
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = game:GetService("CoreGui")
-
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 120)
-MainFrame.Position = UDim2.new(0, 10, 0, 10)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
-MainFrame.BackgroundTransparency = 0.2
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Visible = true
-MainFrame.Parent = ScreenGui
-
-local UpdateFOVCircle = function()
-    local vs = Camera.ViewportSize
-    FOVCircle.Position = Vector2.new(vs.X/2, vs.Y/2)
-    FOVCircle.Visible = Config.AimLock.Enabled
-end
-
-local GetClosestTarget = function()
-    local closest, closestDist = nil, Config.AimLock.FOV
-    local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+-- Проверяем поддерживает ли executor saveinstance
+if saveinstance then
+    saveinstance(nil, filename)
+    print("✅ Игра сохранена на рабочий стол!")
+    print("📁 Файл: " .. filename)
     
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p == LocalPlayer then continue end
-        local char = p.Character
-        if not char then continue end
-        local head = char:FindFirstChild("Head")
-        if not head then continue end
-        
-        local dist = (head.Position - Camera.CFrame.Position).Magnitude
-        if dist > Config.AimLock.MaxDistance then continue end
-        
-        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-        if not onScreen then continue end
-        
-        local screenDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-        if screenDist < closestDist then
-            closest = p
-            closestDist = screenDist
-        end
+    -- Открываем папку с файлом (работает на Windows)
+    if setclipboard then
+        setclipboard(filename)
+        print("📋 Путь скопирован в буфер обмена")
     end
-    return closest
-end
-
-local AimAtTarget = function(target)
-    if not target or not target.Character then return end
-    local head = target.Character:FindFirstChild("Head")
-    if not head then return end
-    Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
-end
-
-local UpdateESP = function()
-    if not Config.ESP.Enabled then
-        for _, drawings in pairs(ESPDrawings) do
-            drawings.Box.Visible = false
-            drawings.Name.Visible = false
-        end
-        return
-    end
+else
+    print("❌ Ваш executor не поддерживает saveinstance!")
+    print("Попробуйте другие методы:")
     
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player == LocalPlayer then continue end
-        
-        local char = player.Character
-        if not char then
-            if ESPDrawings[player] then
-                ESPDrawings[player].Box.Visible = false
-                ESPDrawings[player].Name.Visible = false
-            end
-            continue
-        end
-        
-        local root = char:FindFirstChild("HumanoidRootPart")
-        local head = char:FindFirstChild("Head")
-        if not root or not head then continue end
-        
-        local dist = (head.Position - Camera.CFrame.Position).Magnitude
-        if dist > Config.ESP.MaxDistance then
-            if ESPDrawings[player] then
-                ESPDrawings[player].Box.Visible = false
-                ESPDrawings[player].Name.Visible = false
-            end
-            continue
-        end
-        
-        if not ESPDrawings[player] then
-            ESPDrawings[player] = {
-                Box = Drawing.new("Square"),
-                Name = Drawing.new("Text")
-            }
-            ESPDrawings[player].Box.Color = Config.ESP.Color
-            ESPDrawings[player].Box.Thickness = 1
-            ESPDrawings[player].Box.Filled = false
-            ESPDrawings[player].Name.Color = Config.ESP.Color
-            ESPDrawings[player].Name.Size = 13
-            ESPDrawings[player].Name.Outline = true
-        end
-        
-        local pos, onScreen = Camera:WorldToViewportPoint(root.Position)
-        if onScreen then
-            local baseSize = 15
-            local sizeMultiplier = 1000 / math.max(dist, 10)
-            local boxSize = math.clamp(baseSize * sizeMultiplier / 100, 20, 80)
-            
-            ESPDrawings[player].Box.Size = Vector2.new(boxSize, boxSize * 1.5)
-            ESPDrawings[player].Box.Position = Vector2.new(pos.X - boxSize/2, pos.Y - boxSize * 1.5/2)
-            ESPDrawings[player].Box.Visible = true
-            
-            ESPDrawings[player].Name.Position = Vector2.new(pos.X, pos.Y - boxSize * 1.5/2 - 10)
-            ESPDrawings[player].Name.Text = player.Name -- БЕЗ ДИСТАНЦИИ
-            ESPDrawings[player].Name.Visible = true
-        else
-            ESPDrawings[player].Box.Visible = false
-            ESPDrawings[player].Name.Visible = false
-        end
-    end
-end
-
-UIS.InputBegan:Connect(function(input)
-    if input.KeyCode.Name == Config.UI.ToggleKey then
-        UIVisible = not UIVisible
-        MainFrame.Visible = UIVisible
-    end
+    -- Альтернатива через GetObjects
+    local success, data = pcall(function()
+        return game:GetService("HttpService"):JSONEncode(game:GetObjects())
+    end)
     
-    if input.KeyCode.Name == Config.AimLock.Key and Config.AimLock.Enabled then
-        AimActive = not AimActive
-        if AimActive then
-            CurrentTarget = GetClosestTarget()
-        else
-            CurrentTarget = nil
-        end
+    if success then
+        writefile(desktop .. "game_backup.txt", data)
+        print("📄 Данные игры сохранены как текстовый файл")
     end
-end)
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1,0,0,25)
-Title.BackgroundColor3 = Color3.fromRGB(40,40,50)
-Title.Text = "PlatoBoost"
-Title.TextColor3 = Color3.new(1,1,1)
-Title.Font = Enum.Font.Code
-Title.TextSize = 16
-Title.Parent = MainFrame
-
-local ESPBtn = Instance.new("TextButton")
-ESPBtn.Size = UDim2.new(1,-10,0,30)
-ESPBtn.Position = UDim2.new(0,5,0,30)
-ESPBtn.BackgroundColor3 = Config.ESP.Enabled and Color3.fromRGB(60,180,80) or Color3.fromRGB(180,60,80)
-ESPBtn.Text = "ESP: " .. (Config.ESP.Enabled and "ON" or "OFF")
-ESPBtn.TextColor3 = Color3.new(1,1,1)
-ESPBtn.Font = Enum.Font.Code
-ESPBtn.TextSize = 14
-ESPBtn.Parent = MainFrame
-
-local AimBtn = Instance.new("TextButton")
-AimBtn.Size = UDim2.new(1,-10,0,30)
-AimBtn.Position = UDim2.new(0,5,0,65)
-AimBtn.BackgroundColor3 = Config.AimLock.Enabled and Color3.fromRGB(60,180,80) or Color3.fromRGB(180,60,80)
-AimBtn.Text = "AIM: " .. (Config.AimLock.Enabled and "ON" or "OFF")
-AimBtn.TextColor3 = Color3.new(1,1,1)
-AimBtn.Font = Enum.Font.Code
-AimBtn.TextSize = 14
-AimBtn.Parent = MainFrame
-
-local KeyLabel = Instance.new("TextLabel")
-KeyLabel.Size = UDim2.new(1,-10,0,30)
-KeyLabel.Position = UDim2.new(0,5,0,100)
-KeyLabel.BackgroundTransparency = 1
-KeyLabel.Text = "Keys: Q-Aim L-UI"
-KeyLabel.TextColor3 = Color3.new(1,1,1)
-KeyLabel.Font = Enum.Font.Code
-KeyLabel.TextSize = 12
-KeyLabel.Parent = MainFrame
-
-ESPBtn.MouseButton1Click:Connect(function()
-    Config.ESP.Enabled = not Config.ESP.Enabled
-    ESPBtn.Text = "ESP: " .. (Config.ESP.Enabled and "ON" or "OFF")
-    ESPBtn.BackgroundColor3 = Config.ESP.Enabled and Color3.fromRGB(60,180,80) or Color3.fromRGB(180,60,80)
-end)
-
-AimBtn.MouseButton1Click:Connect(function()
-    Config.AimLock.Enabled = not Config.AimLock.Enabled
-    AimBtn.Text = "AIM: " .. (Config.AimLock.Enabled and "ON" or "OFF")
-    AimBtn.BackgroundColor3 = Config.AimLock.Enabled and Color3.fromRGB(60,180,80) or Color3.fromRGB(180,60,80)
-    UpdateFOVCircle()
-end)
-
-RunService.RenderStepped:Connect(function()
-    UpdateFOVCircle()
-    UpdateESP()
-    
-    if AimActive and Config.AimLock.Enabled then
-        if CurrentTarget and CurrentTarget.Character then
-            AimAtTarget(CurrentTarget)
-        else
-            CurrentTarget = GetClosestTarget()
-        end
-    end
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-    if ESPDrawings[player] then
-        ESPDrawings[player].Box:Remove()
-        ESPDrawings[player].Name:Remove()
-        ESPDrawings[player] = nil
-    end
-end)
-
-UpdateFOVCircle()
-print("PlatoBoost Loaded | Q: Aim Toggle | L: UI Toggle") 
+end 
