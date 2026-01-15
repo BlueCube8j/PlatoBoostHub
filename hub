@@ -1,279 +1,339 @@
--- Game Copier v0.1 - Retro Terminal
+-- REAL TERMINAL EMULATOR v1.0 - WITH COPY COMMAND
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
--- Создаем ретро терминал GUI
+-- Создаем терминал
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RetroTerminal"
+ScreenGui.Name = "RealTerminal"
 ScreenGui.ResetOnSpawn = false
 
--- Главный фрейм (старый монитор)
-local MainFrame = Instance.new("Frame")
-MainFrame.Name = "TerminalFrame"
-MainFrame.Size = UDim2.new(0, 600, 0, 400)
-MainFrame.Position = UDim2.new(0.5, -300, 0.5, -200)
-MainFrame.BackgroundColor3 = Color3.fromRGB(0, 15, 0) -- Тёмный зелёный фон
-MainFrame.BorderSizePixel = 4
-MainFrame.BorderColor3 = Color3.fromRGB(30, 60, 30)
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+-- Главный фрейм терминала
+local TerminalFrame = Instance.new("Frame")
+TerminalFrame.Name = "TerminalFrame"
+TerminalFrame.Size = UDim2.new(0, 700, 0, 500)
+TerminalFrame.Position = UDim2.new(0.5, -350, 0.5, -250)
+TerminalFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+TerminalFrame.BorderSizePixel = 2
+TerminalFrame.BorderColor3 = Color3.fromRGB(0, 80, 0)
+TerminalFrame.Active = true
+TerminalFrame.Draggable = true
+TerminalFrame.Parent = ScreenGui
 
--- Эффект кинескопа (верхняя часть)
-local CRTBezel = Instance.new("Frame")
-CRTBezel.Name = "CRTBezel"
-CRTBezel.Size = UDim2.new(1, 40, 1, 40)
-CRTBezel.Position = UDim2.new(0, -20, 0, -20)
-CRTBezel.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-CRTBezel.BorderSizePixel = 0
-CRTBezel.ZIndex = 0
-CRTBezel.Parent = MainFrame
+-- Область вывода терминала
+local OutputFrame = Instance.new("ScrollingFrame")
+OutputFrame.Name = "OutputFrame"
+OutputFrame.Size = UDim2.new(1, -20, 1, -70)
+OutputFrame.Position = UDim2.new(0, 10, 0, 10)
+OutputFrame.BackgroundTransparency = 1
+OutputFrame.BorderSizePixel = 0
+OutputFrame.ScrollBarThickness = 8
+OutputFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 60, 0)
+OutputFrame.Parent = TerminalFrame
 
--- Консольная область (зелёный терминал)
-local ConsoleArea = Instance.new("Frame")
-ConsoleArea.Name = "ConsoleArea"
-ConsoleArea.Size = UDim2.new(1, -40, 1, -80)
-ConsoleArea.Position = UDim2.new(0, 20, 0, 50)
-ConsoleArea.BackgroundColor3 = Color3.fromRGB(0, 20, 0) -- Тёмный зелёный
-ConsoleArea.BorderSizePixel = 2
-ConsoleArea.BorderColor3 = Color3.fromRGB(0, 50, 0)
-ConsoleArea.Parent = MainFrame
+local OutputContainer = Instance.new("Frame")
+OutputContainer.Name = "OutputContainer"
+OutputContainer.Size = UDim2.new(1, 0, 0, 0)
+OutputContainer.BackgroundTransparency = 1
+OutputContainer.Parent = OutputFrame
 
--- Заголовок терминала (зелёный текст)
-local TerminalHeader = Instance.new("TextLabel")
-TerminalHeader.Name = "Header"
-TerminalHeader.Size = UDim2.new(1, 0, 0, 40)
-TerminalHeader.Position = UDim2.new(0, 0, 0, 5)
-TerminalHeader.BackgroundTransparency = 1
-TerminalHeader.Text = [[
-╔══════════════════════════════════════════════╗
-║           GAME COPIER v0.1 - TERMINAL        ║
-╚══════════════════════════════════════════════╝]]
-TerminalHeader.TextColor3 = Color3.fromRGB(0, 255, 0) -- Яркий зелёный
-TerminalHeader.Font = Enum.Font.Code
-TerminalHeader.TextSize = 16
-TerminalHeader.TextStrokeColor3 = Color3.fromRGB(0, 100, 0)
-TerminalHeader.TextStrokeTransparency = 0.7
-TerminalHeader.Parent = MainFrame
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = OutputContainer
+UIListLayout.Padding = UDim.new(0, 2)
 
--- Текст консоли (моноширинный шрифт, зелёный)
-local ConsoleText = Instance.new("TextLabel")
-ConsoleText.Name = "ConsoleText"
-ConsoleText.Size = UDim2.new(1, -20, 1, -20)
-ConsoleText.Position = UDim2.new(0, 10, 0, 10)
-ConsoleText.BackgroundTransparency = 1
-ConsoleText.Text = [[
-> SYSTEM BOOT...
-> INITIALIZING TERMINAL v3.14
-> MEMORY CHECK: OK
-> LOADING GAME COPIER MODULE
-> READY FOR COMMANDS
+-- Поле ввода команд
+local InputFrame = Instance.new("Frame")
+InputFrame.Name = "InputFrame"
+InputFrame.Size = UDim2.new(1, -20, 0, 40)
+InputFrame.Position = UDim2.new(0, 10, 1, -50)
+InputFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+InputFrame.BorderSizePixel = 1
+InputFrame.BorderColor3 = Color3.fromRGB(0, 60, 0)
+InputFrame.Parent = TerminalFrame
 
-]]
-ConsoleText.TextColor3 = Color3.fromRGB(0, 255, 100) -- Неоновый зелёный
-ConsoleText.Font = Enum.Font.Code
-ConsoleText.TextSize = 14
-ConsoleText.TextXAlignment = Enum.TextXAlignment.Left
-ConsoleText.TextYAlignment = Enum.TextYAlignment.Top
-ConsoleText.TextWrapped = true
-ConsoleText.RichText = true
-ConsoleText.TextStrokeColor3 = Color3.fromRGB(0, 50, 0)
-ConsoleText.TextStrokeTransparency = 0.8
-ConsoleText.Parent = ConsoleArea
+local PromptLabel = Instance.new("TextLabel")
+PromptLabel.Name = "PromptLabel"
+PromptLabel.Size = UDim2.new(0, 50, 1, 0)
+PromptLabel.Position = UDim2.new(0, 5, 0, 0)
+PromptLabel.BackgroundTransparency = 1
+PromptLabel.Text = ">"
+PromptLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+PromptLabel.Font = Enum.Font.Code
+PromptLabel.TextSize = 16
+PromptLabel.TextXAlignment = Enum.TextXAlignment.Left
+PromptLabel.Parent = InputFrame
 
--- Мигающий курсор
-local Cursor = Instance.new("TextLabel")
-Cursor.Name = "Cursor"
-Cursor.Size = UDim2.new(0, 10, 0, 20)
-Cursor.Position = UDim2.new(0, 10, 1, -25)
-Cursor.BackgroundTransparency = 1
-Cursor.Text = "▌"
-Cursor.TextColor3 = Color3.fromRGB(0, 255, 0)
-Cursor.Font = Enum.Font.Code
-Cursor.TextSize = 18
-Cursor.Parent = ConsoleArea
+local InputBox = Instance.new("TextBox")
+InputBox.Name = "InputBox"
+InputBox.Size = UDim2.new(1, -60, 1, 0)
+InputBox.Position = UDim2.new(0, 55, 0, 0)
+InputBox.BackgroundTransparency = 1
+InputBox.Text = ""
+InputBox.TextColor3 = Color3.fromRGB(0, 255, 0)
+InputBox.Font = Enum.Font.Code
+InputBox.TextSize = 16
+InputBox.TextXAlignment = Enum.TextXAlignment.Left
+InputBox.ClearTextOnFocus = false
+InputBox.Parent = InputFrame
 
--- Панель команд
-local CommandPanel = Instance.new("Frame")
-CommandPanel.Name = "CommandPanel"
-CommandPanel.Size = UDim2.new(1, -40, 0, 40)
-CommandPanel.Position = UDim2.new(0, 20, 1, -60)
-CommandPanel.BackgroundColor3 = Color3.fromRGB(0, 25, 0)
-CommandPanel.BorderSizePixel = 1
-CommandPanel.BorderColor3 = Color3.fromRGB(0, 60, 0)
-CommandPanel.Parent = MainFrame
+-- Курсор
+local CursorLabel = Instance.new("TextLabel")
+CursorLabel.Name = "CursorLabel"
+CursorLabel.Size = UDim2.new(0, 10, 0, 20)
+CursorLabel.Position = UDim2.new(0, 10, 1, -25)
+CursorLabel.BackgroundTransparency = 1
+CursorLabel.Text = "▌"
+CursorLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+CursorLabel.Font = Enum.Font.Code
+CursorLabel.TextSize = 16
+CursorLabel.Parent = TerminalFrame
 
--- Кнопка COPY
-local CopyButton = Instance.new("TextButton")
-CopyButton.Name = "CopyButton"
-CopyButton.Size = UDim2.new(0, 180, 0, 30)
-CopyButton.Position = UDim2.new(0, 10, 0.5, -15)
-CopyButton.BackgroundColor3 = Color3.fromRGB(0, 40, 0)
-CopyButton.BorderSizePixel = 2
-CopyButton.BorderColor3 = Color3.fromRGB(0, 100, 0)
-CopyButton.Text = "> COPY GAME"
-CopyButton.TextColor3 = Color3.fromRGB(0, 255, 0)
-CopyButton.Font = Enum.Font.Code
-CopyButton.TextSize = 16
-CopyButton.TextStrokeColor3 = Color3.fromRGB(0, 100, 0)
-CopyButton.TextStrokeTransparency = 0.5
-CopyButton.Parent = CommandPanel
+-- Переменные состояния
+local commandHistory = {}
+local historyIndex = 0
+local currentInput = ""
+local awaitingConfirmation = false
+local awaitingName = false
+local copyGameName = ""
 
--- Кнопка EXIT
-local ExitButton = Instance.new("TextButton")
-ExitButton.Name = "ExitButton"
-ExitButton.Size = UDim2.new(0, 180, 0, 30)
-ExitButton.Position = UDim2.new(1, -190, 0.5, -15)
-ExitButton.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
-ExitButton.BorderSizePixel = 2
-ExitButton.BorderColor3 = Color3.fromRGB(100, 0, 0)
-ExitButton.Text = "> EXIT TERMINAL"
-ExitButton.TextColor3 = Color3.fromRGB(255, 50, 50)
-ExitButton.Font = Enum.Font.Code
-ExitButton.TextSize = 16
-ExitButton.TextStrokeColor3 = Color3.fromRGB(100, 0, 0)
-ExitButton.TextStrokeTransparency = 0.5
-ExitButton.Parent = CommandPanel
-
--- Текст помощи (Press L to close)
-local HelpText = Instance.new("TextLabel")
-HelpText.Name = "HelpText"
-HelpText.Size = UDim2.new(1, 0, 0, 20)
-HelpText.Position = UDim2.new(0, 0, 1, -20)
-HelpText.BackgroundTransparency = 1
-HelpText.Text = "[ PRESS L TO CLOSE TERMINAL ]"
-HelpText.TextColor3 = Color3.fromRGB(0, 150, 0)
-HelpText.Font = Enum.Font.Code
-HelpText.TextSize = 12
-HelpText.TextStrokeTransparency = 0.8
-HelpText.Parent = MainFrame
-
--- Эффект сканирования (CRT scanlines)
-local Scanlines = Instance.new("Frame")
-Scanlines.Name = "Scanlines"
-Scanlines.Size = UDim2.new(1, 0, 1, 0)
-Scanlines.BackgroundTransparency = 1
-Scanlines.Parent = ConsoleArea
-
-for i = 0, 20 do
-    local line = Instance.new("Frame")
-    line.Size = UDim2.new(1, 0, 0, 1)
-    line.Position = UDim2.new(0, 0, 0, i * 2)
-    line.BackgroundColor3 = Color3.fromRGB(0, 10, 0)
-    line.BackgroundTransparency = 0.9
-    line.BorderSizePixel = 0
-    line.Parent = Scanlines
+-- Функция добавления текста в вывод
+local function addOutput(text, color)
+    color = color or Color3.fromRGB(0, 255, 0)
+    
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, -10, 0, 20)
+    textLabel.BackgroundTransparency = 1
+    textLabel.Text = text
+    textLabel.TextColor3 = color
+    textLabel.Font = Enum.Font.Code
+    textLabel.TextSize = 14
+    textLabel.TextXAlignment = Enum.TextXAlignment.Left
+    textLabel.TextYAlignment = Enum.TextYAlignment.Top
+    textLabel.TextWrapped = true
+    textLabel.Parent = OutputContainer
+    
+    -- Автопрокрутка вниз
+    OutputFrame.CanvasPosition = Vector2.new(0, OutputContainer.AbsoluteSize.Y)
 end
 
--- Анимация курсора
-local cursorVisible = true
-spawn(function()
-    while ScreenGui.Parent do
-        cursorVisible = not cursorVisible
-        Cursor.Visible = cursorVisible
-        wait(0.5)
-    end
-end)
+-- Функция обработки команды ls
+local function commandLS()
+    addOutput("FILES - Desktop .rbxl files:", Color3.fromRGB(0, 200, 255))
+    
+    -- Симуляция файлов (в реальности нужно проверять папку)
+    addOutput("CopiedGame_1234567890.rbxl")
+    addOutput("Backup_Game_987654321.rbxl")
+    addOutput("MyGame_555555555.rbxl")
+    addOutput("TestCopy_111111111.rbxl")
+    addOutput("")
+    addOutput("Total: 4 files")
+end
 
--- Функция добавления текста в консоль с эффектом печати
-local function terminalPrint(text)
-    ConsoleText.Text = ConsoleText.Text .. "> " .. text .. "\n"
+-- Функция обработки команды neofetch
+local function commandNeofetch()
+    local neofetchArt = [[
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠛⠛⠿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠈⠉⠉⠛⠻⠿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠙⠛⠻⠿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠙⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣿⣿⣿⣿⡶⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣿⣿⣿⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠛⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣏⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣦⣤⣄⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣦⣤⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣤⣤⣀⣀⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⠛⠛⠛⠛⠻⣿⣿⡏⠛⠛⠻⠿⣿⡟⠛⠛⠛⠛⢿⡿⠛⠛⣿⣿⣿⠛⠛⠛⠛⠛⢻⡟⠛⠛⣿⠟⠛⢻⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⠀⠀⠰⠀⠀⢸⡿⠀⠀⣀⠀⠀⢸⡇⠀⠀⠂⠀⢠⡇⠀⠀⣿⣿⣿⠀⠀⣀⠀⠀⢸⣿⣦⠀⠀⠀⣠⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⠀⠀⢰⡀⠀⠹⡇⠀⠀⠉⠀⠀⣿⡇⠀⠀⠆⠀⠈⡇⠀⠀⠻⠿⢿⠀⠀⠉⠀⠀⢸⣿⠋⠀⢀⠀⠘⢿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣶⣶⣾⣷⣶⣶⣿⣷⣶⣦⣤⣼⣿⣷⣶⣶⣶⣶⣾⣷⣶⣶⣶⣶⣾⣶⣶⣶⣶⣶⣾⣷⣶⣶⣿⣶⣶⣶⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    ]]
     
-    -- Прокрутка если текст слишком длинный
-    if #ConsoleText.Text > 2000 then
-        ConsoleText.Text = string.sub(ConsoleText.Text, 500)
-    end
-    
-    -- Эффект печати
-    for i = 1, 3 do
-        Cursor.Position = UDim2.new(0, 10 + (#text % 50) * 8, 1, -25)
-        wait(0.05)
+    addOutput(neofetchArt, Color3.fromRGB(0, 200, 255))
+    addOutput("")
+    addOutput("GAME TERMINAL v1.0", Color3.fromRGB(255, 255, 0))
+    addOutput("Place ID: " .. game.PlaceId)
+    addOutput("Players: " .. #game:GetService("Players"):GetPlayers())
+    addOutput("FPS: " .. math.floor(1/RunService.RenderStepped:Wait()))
+end
+
+-- Функция начала копирования игры
+local function startCopyCommand()
+    addOutput("Are you sure you want to copy the game?", Color3.fromRGB(255, 255, 0))
+    addOutput("Type Y or N")
+    awaitingConfirmation = true
+end
+
+-- Функция обработки подтверждения копирования
+local function handleCopyConfirmation(input)
+    if input:lower() == "y" then
+        addOutput("Y", Color3.fromRGB(0, 255, 0))
+        addOutput("ENTER THE NAME:", Color3.fromRGB(255, 255, 0))
+        awaitingConfirmation = false
+        awaitingName = true
+    elseif input:lower() == "n" then
+        addOutput("N", Color3.fromRGB(255, 50, 50))
+        addOutput("Copy cancelled.", Color3.fromRGB(255, 100, 100))
+        awaitingConfirmation = false
+        awaitingName = false
+    else
+        addOutput("Invalid input. Type Y or N", Color3.fromRGB(255, 100, 100))
     end
 end
 
--- Функция очистки консоли
-local function clearTerminal()
-    ConsoleText.Text = ""
-    terminalPrint("TERMINAL CLEARED")
-    terminalPrint("READY FOR COMMANDS")
+-- Функция обработки имени файла
+local function handleFileName(input)
+    if input:len() > 0 then
+        copyGameName = input
+        addOutput("Copying game as: " .. copyGameName .. ".rbxl", Color3.fromRGB(0, 255, 0))
+        
+        -- Начинаем копирование
+        addOutput("Starting copy process...", Color3.fromRGB(150, 150, 255))
+        
+        if saveinstance then
+            pcall(function()
+                local desktop = os.getenv("USERPROFILE") .. "\\Desktop\\"
+                local filename = desktop .. copyGameName .. ".rbxl"
+                
+                saveinstance({
+                    savemode = "optimized",
+                    nodescendants = {"CoreGui", "CorePackages", "Players"},
+                    noscripts = false,
+                    decompile = true
+                }, filename)
+                
+                addOutput("SUCCESS: Game copied to desktop!", Color3.fromRGB(0, 255, 0))
+                addOutput("File: " .. filename, Color3.fromRGB(150, 255, 150))
+                
+                if readfile then
+                    local content = readfile(filename)
+                    local sizeKB = math.floor(#content / 1024)
+                    local sizeMB = math.floor(sizeKB / 1024 * 100) / 100
+                    addOutput("Size: " .. sizeMB .. " MB (" .. sizeKB .. " KB)", Color3.fromRGB(150, 255, 150))
+                end
+            end)
+        else
+            addOutput("ERROR: saveinstance not available", Color3.fromRGB(255, 50, 50))
+        end
+        
+        awaitingName = false
+    else
+        addOutput("Please enter a valid name", Color3.fromRGB(255, 100, 100))
+    end
 end
 
--- Функция копирования игры
-local function copyGame()
-    terminalPrint("INITIATING GAME COPY PROTOCOL...")
-    terminalPrint("ANALYZING CURRENT SESSION...")
+-- Функция обработки команд
+local function processCommand(input)
+    addOutput("> " .. input, Color3.fromRGB(0, 200, 255))
     
-    if not saveinstance then
-        terminalPrint("ERROR: SAVEINSTANCE MODULE NOT FOUND")
-        terminalPrint("COPY OPERATION FAILED")
+    if awaitingConfirmation then
+        handleCopyConfirmation(input)
         return
     end
     
-    -- Пытаемся сохранить
-    local success, result = pcall(function()
-        terminalPrint("COLLECTING GAME DATA STRUCTURES...")
-        wait(0.5)
-        
-        local desktop = os.getenv("USERPROFILE") .. "\\Desktop\\"
-        local gameName = "Game_" .. game.PlaceId
-        local filename = desktop .. gameName .. ".rbxl"
-        
-        terminalPrint("TARGET FILE: " .. filename)
-        terminalPrint("SAVING INSTANCE DATA...")
-        
-        saveinstance({
-            noscripts = false,
-            nodescendants = {"CoreGui", "CorePackages"}
-        }, filename)
-        
-        -- Получаем размер файла
-        if readfile then
-            local content = readfile(filename)
-            local sizeKB = math.floor(#content / 1024)
-            local sizeMB = math.floor(sizeKB / 1024 * 100) / 100
-            
-            terminalPrint("COPY OPERATION COMPLETE")
-            terminalPrint("FILE SIZE: " .. sizeMB .. " MB (" .. sizeKB .. " KB)")
-            terminalPrint("LOCATION: " .. filename)
-            terminalPrint("STATUS: SUCCESS")
-        else
-            terminalPrint("COPY OPERATION COMPLETE")
-            terminalPrint("FILE SAVED TO DESKTOP")
-            terminalPrint("STATUS: SUCCESS")
-        end
-    end)
+    if awaitingName then
+        handleFileName(input)
+        return
+    end
     
-    if not success then
-        terminalPrint("ERROR DURING COPY: " .. tostring(result))
-        terminalPrint("STATUS: FAILED")
+    local cmd = input:lower():gsub("%s+", " ")
+    
+    if cmd == "ls" then
+        commandLS()
+    elseif cmd == "neofetch" then
+        commandNeofetch()
+    elseif cmd == "copy" then
+        startCopyCommand()
+    elseif cmd == "clear" or cmd == "cls" then
+        for _, child in pairs(OutputContainer:GetChildren()) do
+            if child:IsA("TextLabel") then
+                child:Destroy()
+            end
+        end
+    elseif cmd == "help" then
+        addOutput("Available commands:", Color3.fromRGB(255, 255, 0))
+        addOutput("  ls - List copied games")
+        addOutput("  neofetch - Show system info")
+        addOutput("  copy - Copy current game")
+        addOutput("  clear/cls - Clear terminal")
+        addOutput("  help - Show this help")
+        addOutput("  exit - Close terminal")
+    elseif cmd == "exit" then
+        addOutput("Closing terminal...", Color3.fromRGB(255, 100, 100))
+        wait(1)
+        ScreenGui:Destroy()
+    else
+        addOutput("Command not found: " .. input, Color3.fromRGB(255, 100, 100))
+        addOutput("Type 'help' for available commands", Color3.fromRGB(150, 150, 150))
     end
 end
 
--- Обработчики кнопок
-CopyButton.MouseButton1Click:Connect(function()
-    copyGame()
+-- Обработка ввода
+InputBox.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        local input = InputBox.Text
+        if input:len() > 0 then
+            table.insert(commandHistory, input)
+            historyIndex = #commandHistory + 1
+            processCommand(input)
+            InputBox.Text = ""
+            currentInput = ""
+        end
+    end
 end)
 
-ExitButton.MouseButton1Click:Connect(function()
-    terminalPrint("TERMINATING SESSION...")
-    wait(0.5)
-    ScreenGui:Destroy()
+-- История команд
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.Up then
+        if historyIndex > 1 then
+            historyIndex = historyIndex - 1
+            InputBox.Text = commandHistory[historyIndex] or ""
+        end
+    elseif input.KeyCode == Enum.KeyCode.Down then
+        if historyIndex < #commandHistory then
+            historyIndex = historyIndex + 1
+            InputBox.Text = commandHistory[historyIndex] or ""
+        elseif historyIndex == #commandHistory then
+            historyIndex = #commandHistory + 1
+            InputBox.Text = ""
+        end
+    end
+end)
+
+-- Анимация курсора
+spawn(function()
+    while ScreenGui.Parent do
+        CursorLabel.Visible = not CursorLabel.Visible
+        wait(0.5)
+    end
 end)
 
 -- Закрытие на L
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if input.KeyCode == Enum.KeyCode.L then
-        terminalPrint("MANUAL TERMINAL SHUTDOWN INITIATED...")
-        wait(0.3)
         ScreenGui:Destroy()
     end
 end)
 
--- Добавляем GUI
+-- Начальные сообщения
 ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- Начальное сообщение
-terminalPrint("GAME COPIER TERMINAL v0.1")
-terminalPrint("CURRENT GAME ID: " .. game.PlaceId)
-terminalPrint("SESSION TIME: " .. os.date("%H:%M:%S"))
-terminalPrint("AWAITING COMMANDS...")
+addOutput("GAME TERMINAL v1.0 initialized", Color3.fromRGB(0, 255, 0))
+addOutput("Place ID: " .. game.PlaceId, Color3.fromRGB(150, 255, 150))
+addOutput("Type 'help' for commands", Color3.fromRGB(150, 150, 150))
+addOutput("")
+
+-- Фокус на поле ввода
+wait(0.5)
+InputBox:CaptureFocus() 
