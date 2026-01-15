@@ -1,13 +1,14 @@
--- REAL TERMINAL EMULATOR v1.0 - WITH COPY COMMAND
+-- ADVANCED TERMINAL EMULATOR v2.0
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 
 -- Создаем терминал
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "RealTerminal"
+ScreenGui.Name = "AdvancedTerminal"
 ScreenGui.ResetOnSpawn = false
 
--- Главный фрейм терминала
+-- Главный фрейм терминала (фиксированная позиция)
 local TerminalFrame = Instance.new("Frame")
 TerminalFrame.Name = "TerminalFrame"
 TerminalFrame.Size = UDim2.new(0, 700, 0, 500)
@@ -16,35 +17,56 @@ TerminalFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
 TerminalFrame.BorderSizePixel = 2
 TerminalFrame.BorderColor3 = Color3.fromRGB(0, 80, 0)
 TerminalFrame.Active = true
-TerminalFrame.Draggable = true
+TerminalFrame.Selectable = true
 TerminalFrame.Parent = ScreenGui
 
--- Область вывода терминала
-local OutputFrame = Instance.new("ScrollingFrame")
+-- Заголовок
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 25)
+TitleBar.BackgroundColor3 = Color3.fromRGB(0, 40, 0)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = TerminalFrame
+
+local TitleText = Instance.new("TextLabel")
+TitleText.Name = "TitleText"
+TitleText.Size = UDim2.new(1, 0, 1, 0)
+TitleText.BackgroundTransparency = 1
+TitleText.Text = "GAME TERMINAL v2.0 - [Place ID: " .. game.PlaceId .. "]"
+TitleText.TextColor3 = Color3.fromRGB(0, 255, 0)
+TitleText.Font = Enum.Font.Code
+TitleText.TextSize = 12
+TitleText.TextXAlignment = Enum.TextXAlignment.Center
+TitleText.Parent = TitleBar
+
+-- Область вывода терминала (без автоскролла)
+local OutputFrame = Instance.new("Frame")
 OutputFrame.Name = "OutputFrame"
 OutputFrame.Size = UDim2.new(1, -20, 1, -70)
-OutputFrame.Position = UDim2.new(0, 10, 0, 10)
-OutputFrame.BackgroundTransparency = 1
-OutputFrame.BorderSizePixel = 0
-OutputFrame.ScrollBarThickness = 8
-OutputFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 60, 0)
+OutputFrame.Position = UDim2.new(0, 10, 0, 35)
+OutputFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 5)
+OutputFrame.BorderSizePixel = 1
+OutputFrame.BorderColor3 = Color3.fromRGB(0, 60, 0)
+OutputFrame.ClipsDescendants = true
 OutputFrame.Parent = TerminalFrame
 
 local OutputContainer = Instance.new("Frame")
 OutputContainer.Name = "OutputContainer"
-OutputContainer.Size = UDim2.new(1, 0, 0, 0)
+OutputContainer.Size = UDim2.new(1, 0, 1, 0)
 OutputContainer.BackgroundTransparency = 1
 OutputContainer.Parent = OutputFrame
 
 local UIListLayout = Instance.new("UIListLayout")
 UIListLayout.Parent = OutputContainer
 UIListLayout.Padding = UDim.new(0, 2)
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 
 -- Поле ввода команд
 local InputFrame = Instance.new("Frame")
 InputFrame.Name = "InputFrame"
-InputFrame.Size = UDim2.new(1, -20, 0, 40)
-InputFrame.Position = UDim2.new(0, 10, 1, -50)
+InputFrame.Size = UDim2.new(1, -20, 0, 30)
+InputFrame.Position = UDim2.new(0, 10, 1, -35)
 InputFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 InputFrame.BorderSizePixel = 1
 InputFrame.BorderColor3 = Color3.fromRGB(0, 60, 0)
@@ -52,189 +74,292 @@ InputFrame.Parent = TerminalFrame
 
 local PromptLabel = Instance.new("TextLabel")
 PromptLabel.Name = "PromptLabel"
-PromptLabel.Size = UDim2.new(0, 50, 1, 0)
+PromptLabel.Size = UDim2.new(0, 60, 1, 0)
 PromptLabel.Position = UDim2.new(0, 5, 0, 0)
 PromptLabel.BackgroundTransparency = 1
-PromptLabel.Text = ">"
+PromptLabel.Text = "user@game:~$"
 PromptLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
 PromptLabel.Font = Enum.Font.Code
-PromptLabel.TextSize = 16
+PromptLabel.TextSize = 14
 PromptLabel.TextXAlignment = Enum.TextXAlignment.Left
 PromptLabel.Parent = InputFrame
 
 local InputBox = Instance.new("TextBox")
 InputBox.Name = "InputBox"
-InputBox.Size = UDim2.new(1, -60, 1, 0)
-InputBox.Position = UDim2.new(0, 55, 0, 0)
+InputBox.Size = UDim2.new(1, -70, 1, 0)
+InputBox.Position = UDim2.new(0, 65, 0, 0)
 InputBox.BackgroundTransparency = 1
 InputBox.Text = ""
 InputBox.TextColor3 = Color3.fromRGB(0, 255, 0)
 InputBox.Font = Enum.Font.Code
-InputBox.TextSize = 16
+InputBox.TextSize = 14
 InputBox.TextXAlignment = Enum.TextXAlignment.Left
 InputBox.ClearTextOnFocus = false
 InputBox.Parent = InputFrame
 
--- Курсор
-local CursorLabel = Instance.new("TextLabel")
-CursorLabel.Name = "CursorLabel"
-CursorLabel.Size = UDim2.new(0, 10, 0, 20)
-CursorLabel.Position = UDim2.new(0, 10, 1, -25)
-CursorLabel.BackgroundTransparency = 1
-CursorLabel.Text = "▌"
-CursorLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-CursorLabel.Font = Enum.Font.Code
-CursorLabel.TextSize = 16
-CursorLabel.Parent = TerminalFrame
-
 -- Переменные состояния
 local commandHistory = {}
 local historyIndex = 0
-local currentInput = ""
 local awaitingConfirmation = false
 local awaitingName = false
 local copyGameName = ""
+local isCopying = false
 
--- Функция добавления текста в вывод
+-- Функция добавления текста в вывод (фиксированная позиция)
 local function addOutput(text, color)
     color = color or Color3.fromRGB(0, 255, 0)
     
     local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, -10, 0, 20)
+    textLabel.Size = UDim2.new(1, -10, 0, 0)
+    textLabel.AutomaticSize = Enum.AutomaticSize.Y
     textLabel.BackgroundTransparency = 1
     textLabel.Text = text
     textLabel.TextColor3 = color
     textLabel.Font = Enum.Font.Code
-    textLabel.TextSize = 14
+    textLabel.TextSize = 13
     textLabel.TextXAlignment = Enum.TextXAlignment.Left
     textLabel.TextYAlignment = Enum.TextYAlignment.Top
     textLabel.TextWrapped = true
+    textLabel.RichText = true
     textLabel.Parent = OutputContainer
     
-    -- Автопрокрутка вниз
-    OutputFrame.CanvasPosition = Vector2.new(0, OutputContainer.AbsoluteSize.Y)
+    -- Лимит строк (сохраняем только последние 50)
+    local children = OutputContainer:GetChildren()
+    if #children > 50 then
+        for i = 1, #children - 50 do
+            if children[i]:IsA("TextLabel") then
+                children[i]:Destroy()
+            end
+        end
+    end
 end
 
--- Функция обработки команды ls
-local function commandLS()
-    addOutput("FILES - Desktop .rbxl files:", Color3.fromRGB(0, 200, 255))
+-- Прогресс бар для копирования
+local function showProgressBar(percentage, message)
+    local progressWidth = math.floor(percentage * 3) -- 0-100% в ширину 300px
     
-    -- Симуляция файлов (в реальности нужно проверять папку)
-    addOutput("CopiedGame_1234567890.rbxl")
-    addOutput("Backup_Game_987654321.rbxl")
-    addOutput("MyGame_555555555.rbxl")
-    addOutput("TestCopy_111111111.rbxl")
-    addOutput("")
-    addOutput("Total: 4 files")
+    -- Удаляем старый прогресс бар если есть
+    for _, child in pairs(OutputContainer:GetChildren()) do
+        if child.Name == "ProgressBar" then
+            child:Destroy()
+        end
+    end
+    
+    local progressContainer = Instance.new("Frame")
+    progressContainer.Name = "ProgressBar"
+    progressContainer.Size = UDim2.new(1, -10, 0, 20)
+    progressContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    progressContainer.BorderSizePixel = 1
+    progressContainer.BorderColor3 = Color3.fromRGB(0, 60, 0)
+    progressContainer.Parent = OutputContainer
+    
+    local progressBar = Instance.new("Frame")
+    progressBar.Name = "ProgressFill"
+    progressBar.Size = UDim2.new(0, progressWidth, 1, 0)
+    progressBar.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    progressBar.BorderSizePixel = 0
+    progressBar.Parent = progressContainer
+    
+    local progressText = Instance.new("TextLabel")
+    progressText.Size = UDim2.new(1, 0, 1, 0)
+    progressText.BackgroundTransparency = 1
+    progressText.Text = message .. " [" .. math.floor(percentage) .. "%]"
+    progressText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    progressText.Font = Enum.Font.Code
+    progressText.TextSize = 11
+    progressText.TextXAlignment = Enum.TextXAlignment.Center
+    progressText.Parent = progressContainer
+    
+    return progressContainer
 end
 
--- Функция обработки команды neofetch
+-- Команда ls
+local function commandLS()
+    addOutput("Desktop .rbxl files:", Color3.fromRGB(0, 200, 255))
+    addOutput("----------------------------------------")
+    
+    -- Симуляция проверки файлов
+    addOutput("game_backup_2024.rbxl      15.7 MB")
+    addOutput("copied_place_12345.rbxl    8.2 MB")
+    addOutput("test_save.rbxl             3.1 MB")
+    addOutput("")
+    addOutput("Total: 3 files | 27.0 MB")
+end
+
+-- Команда neofetch (упрощенная версия)
 local function commandNeofetch()
     local neofetchArt = [[
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡿⠛⠛⠿⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠈⠉⠉⠛⠻⠿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠙⠛⠻⠿⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠙⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣿⣿⣿⣿⡶⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣿⣿⣿⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠉⠛⠛⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣏⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣦⣤⣄⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣦⣤⣄⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣷⣶⣤⣤⣀⣀⣸⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⠛⠛⠛⠛⠻⣿⣿⡏⠛⠛⠻⠿⣿⡟⠛⠛⠛⠛⢿⡿⠛⠛⣿⣿⣿⠛⠛⠛⠛⠛⢻⡟⠛⠛⣿⠟⠛⢻⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⠀⠀⠰⠀⠀⢸⡿⠀⠀⣀⠀⠀⢸⡇⠀⠀⠂⠀⢠⡇⠀⠀⣿⣿⣿⠀⠀⣀⠀⠀⢸⣿⣦⠀⠀⠀⣠⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⠀⠀⢰⡀⠀⠹⡇⠀⠀⠉⠀⠀⣿⡇⠀⠀⠆⠀⠈⡇⠀⠀⠻⠿⢿⠀⠀⠉⠀⠀⢸⣿⠋⠀⢀⠀⠘⢿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣶⣶⣾⣷⣶⣶⣿⣷⣶⣦⣤⣼⣿⣷⣶⣶⣶⣶⣾⣷⣶⣶⣶⣶⣾⣶⣶⣶⣶⣶⣾⣷⣶⣶⣿⣶⣶⣶⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
-⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+    ██████╗  █████╗ ███╗   ███╗███████╗
+   ██╔════╝ ██╔══██╗████╗ ████║██╔════╝
+   ██║  ███╗███████║██╔████╔██║█████╗  
+   ██║   ██║██╔══██║██║╚██╔╝██║██╔══╝  
+   ╚██████╔╝██║  ██║██║ ╚═╝ ██║███████╗
+    ╚═════╝ ╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝
     ]]
     
     addOutput(neofetchArt, Color3.fromRGB(0, 200, 255))
     addOutput("")
-    addOutput("GAME TERMINAL v1.0", Color3.fromRGB(255, 255, 0))
-    addOutput("Place ID: " .. game.PlaceId)
+    addOutput("GAME TERMINAL v2.0", Color3.fromRGB(255, 255, 0))
+    addOutput("OS: Roblox Platform")
+    addOutput("Place: " .. game.PlaceId)
     addOutput("Players: " .. #game:GetService("Players"):GetPlayers())
     addOutput("FPS: " .. math.floor(1/RunService.RenderStepped:Wait()))
+    addOutput("Uptime: " .. os.date("%H:%M:%S"))
 end
 
--- Функция начала копирования игры
+-- Начало команды copy
 local function startCopyCommand()
+    if isCopying then
+        addOutput("ERROR: Copy already in progress!", Color3.fromRGB(255, 50, 50))
+        return
+    end
+    
     addOutput("Are you sure you want to copy the game?", Color3.fromRGB(255, 255, 0))
-    addOutput("Type Y or N")
+    addOutput("Type 'Y' to continue or 'N' to cancel")
     awaitingConfirmation = true
 end
 
--- Функция обработки подтверждения копирования
+-- Обработка подтверждения
 local function handleCopyConfirmation(input)
     if input:lower() == "y" then
         addOutput("Y", Color3.fromRGB(0, 255, 0))
-        addOutput("ENTER THE NAME:", Color3.fromRGB(255, 255, 0))
+        addOutput("Enter file name (without .rbxl extension):", Color3.fromRGB(255, 255, 0))
         awaitingConfirmation = false
         awaitingName = true
     elseif input:lower() == "n" then
-        addOutput("N", Color3.fromRGB(255, 50, 50))
-        addOutput("Copy cancelled.", Color3.fromRGB(255, 100, 100))
+        addOutput("N", Color3.fromRGB(255, 100, 100))
+        addOutput("Copy cancelled.", Color3.fromRGB(150, 150, 150))
         awaitingConfirmation = false
-        awaitingName = false
     else
-        addOutput("Invalid input. Type Y or N", Color3.fromRGB(255, 100, 100))
+        addOutput("Invalid input. Type 'Y' or 'N'", Color3.fromRGB(255, 100, 100))
     end
 end
 
--- Функция обработки имени файла
-local function handleFileName(input)
-    if input:len() > 0 then
-        copyGameName = input
-        addOutput("Copying game as: " .. copyGameName .. ".rbxl", Color3.fromRGB(0, 255, 0))
+-- Функция копирования игры с прогресс баром
+local function performGameCopy(filename)
+    isCopying = true
+    
+    if not saveinstance then
+        addOutput("ERROR: saveinstance function not available!", Color3.fromRGB(255, 50, 50))
+        addOutput("This executor doesn't support game copying.", Color3.fromRGB(255, 100, 100))
+        isCopying = false
+        return false
+    end
+    
+    local desktop = os.getenv("USERPROFILE") .. "\\Desktop\\"
+    local fullPath = desktop .. filename .. ".rbxl"
+    
+    -- Симуляция прогресса
+    local progress = showProgressBar(0, "Initializing...")
+    wait(0.5)
+    
+    progress = showProgressBar(10, "Collecting game objects...")
+    wait(0.3)
+    
+    progress = showProgressBar(25, "Filtering protected systems...")
+    wait(0.4)
+    
+    progress = showProgressBar(40, "Saving instance data...")
+    
+    -- Пытаемся сохранить
+    local success, errorMsg = pcall(function()
+        saveinstance({
+            savemode = "optimized",
+            nodescendants = {
+                "CoreGui", "CorePackages", "Players",
+                "PlayerGui", "PlayerScripts"
+            },
+            noscripts = false,
+            decompile = true,
+            validatenodes = false
+        }, fullPath)
+    end)
+    
+    if success then
+        progress = showProgressBar(75, "Writing to file...")
+        wait(0.5)
         
-        -- Начинаем копирование
-        addOutput("Starting copy process...", Color3.fromRGB(150, 150, 255))
+        progress = showProgressBar(90, "Finalizing...")
+        wait(0.3)
         
-        if saveinstance then
-            pcall(function()
-                local desktop = os.getenv("USERPROFILE") .. "\\Desktop\\"
-                local filename = desktop .. copyGameName .. ".rbxl"
-                
-                saveinstance({
-                    savemode = "optimized",
-                    nodescendants = {"CoreGui", "CorePackages", "Players"},
-                    noscripts = false,
-                    decompile = true
-                }, filename)
-                
-                addOutput("SUCCESS: Game copied to desktop!", Color3.fromRGB(0, 255, 0))
-                addOutput("File: " .. filename, Color3.fromRGB(150, 255, 150))
-                
-                if readfile then
-                    local content = readfile(filename)
-                    local sizeKB = math.floor(#content / 1024)
-                    local sizeMB = math.floor(sizeKB / 1024 * 100) / 100
-                    addOutput("Size: " .. sizeMB .. " MB (" .. sizeKB .. " KB)", Color3.fromRGB(150, 255, 150))
-                end
-            end)
-        else
-            addOutput("ERROR: saveinstance not available", Color3.fromRGB(255, 50, 50))
+        progress = showProgressBar(100, "Copy complete!")
+        wait(0.5)
+        
+        -- Удаляем прогресс бар
+        if progress and progress.Parent then
+            progress:Destroy()
         end
         
-        awaitingName = false
+        -- Проверяем размер файла
+        if readfile then
+            local fileSuccess, content = pcall(readfile, fullPath)
+            if fileSuccess then
+                local sizeKB = math.floor(#content / 1024)
+                local sizeMB = math.floor(sizeKB / 1024 * 100) / 100
+                
+                addOutput("SUCCESS: Game copied successfully!", Color3.fromRGB(0, 255, 0))
+                addOutput("File: " .. fullPath, Color3.fromRGB(150, 255, 150))
+                addOutput("Size: " .. sizeMB .. " MB (" .. sizeKB .. " KB)", Color3.fromRGB(150, 255, 150))
+            else
+                addOutput("SUCCESS: Game saved to desktop", Color3.fromRGB(0, 255, 0))
+                addOutput("Note: Could not verify file size", Color3.fromRGB(255, 200, 0))
+            end
+        else
+            addOutput("SUCCESS: Game saved to desktop", Color3.fromRGB(0, 255, 0))
+        end
     else
-        addOutput("Please enter a valid name", Color3.fromRGB(255, 100, 100))
+        -- Удаляем прогресс бар при ошибке
+        if progress and progress.Parent then
+            progress:Destroy()
+        end
+        
+        addOutput("ERROR: Copy failed!", Color3.fromRGB(255, 50, 50))
+        addOutput("Error details: " .. tostring(errorMsg), Color3.fromRGB(255, 100, 100))
+        
+        if string.find(tostring(errorMsg):lower(), "coregui") then
+            addOutput("Tip: Try using a different executor", Color3.fromRGB(255, 200, 0))
+        end
     end
+    
+    isCopying = false
+    return success
 end
 
--- Функция обработки команд
-local function processCommand(input)
-    addOutput("> " .. input, Color3.fromRGB(0, 200, 255))
+-- Обработка имени файла
+local function handleFileName(input)
+    if input:len() == 0 then
+        addOutput("ERROR: File name cannot be empty", Color3.fromRGB(255, 100, 100))
+        return
+    end
     
+    -- Проверяем допустимые символы в имени файла
+    if input:match("[<>:\"/\\|?*]") then
+        addOutput("ERROR: Invalid characters in file name", Color3.fromRGB(255, 100, 100))
+        addOutput("Cannot contain: < > : \" / \\ | ? *", Color3.fromRGB(255, 150, 150))
+        return
+    end
+    
+    if input:len() > 50 then
+        addOutput("ERROR: File name too long (max 50 chars)", Color3.fromRGB(255, 100, 100))
+        return
+    end
+    
+    copyGameName = input
+    addOutput("Starting copy: " .. copyGameName .. ".rbxl", Color3.fromRGB(0, 200, 255))
+    awaitingName = false
+    
+    -- Запускаем копирование в отдельном потоке
+    spawn(function()
+        performGameCopy(copyGameName)
+    end)
+end
+
+-- Обработка команд
+local function processCommand(input)
+    local displayText = "user@game:~$ " .. input
+    addOutput(displayText, Color3.fromRGB(0, 200, 255))
+    
+    -- Обработка специальных состояний
     if awaitingConfirmation then
         handleCopyConfirmation(input)
         return
@@ -245,34 +370,37 @@ local function processCommand(input)
         return
     end
     
-    local cmd = input:lower():gsub("%s+", " ")
+    local cmd = input:lower():gsub("%s+", " "):gsub("^%s*(.-)%s*$", "%1")
     
-    if cmd == "ls" then
+    if cmd == "ls" or cmd == "dir" then
         commandLS()
-    elseif cmd == "neofetch" then
+    elseif cmd == "neofetch" or cmd == "info" then
         commandNeofetch()
-    elseif cmd == "copy" then
+    elseif cmd == "copy" or cmd == "save" then
         startCopyCommand()
     elseif cmd == "clear" or cmd == "cls" then
+        -- Очищаем терминал
         for _, child in pairs(OutputContainer:GetChildren()) do
-            if child:IsA("TextLabel") then
-                child:Destroy()
-            end
+            child:Destroy()
         end
-    elseif cmd == "help" then
+        addOutput("Terminal cleared.", Color3.fromRGB(150, 150, 150))
+    elseif cmd == "help" or cmd == "?" then
         addOutput("Available commands:", Color3.fromRGB(255, 255, 0))
-        addOutput("  ls - List copied games")
-        addOutput("  neofetch - Show system info")
-        addOutput("  copy - Copy current game")
-        addOutput("  clear/cls - Clear terminal")
-        addOutput("  help - Show this help")
-        addOutput("  exit - Close terminal")
-    elseif cmd == "exit" then
+        addOutput("  ls, dir        - List game files")
+        addOutput("  neofetch, info - System information")
+        addOutput("  copy, save     - Copy current game")
+        addOutput("  clear, cls     - Clear terminal")
+        addOutput("  help, ?        - Show this help")
+        addOutput("  exit, quit     - Close terminal")
+    elseif cmd == "exit" or cmd == "quit" or cmd == "close" then
         addOutput("Closing terminal...", Color3.fromRGB(255, 100, 100))
-        wait(1)
+        wait(0.5)
         ScreenGui:Destroy()
+        return
+    elseif cmd == "" then
+        -- Пустая команда - ничего не делаем
     else
-        addOutput("Command not found: " .. input, Color3.fromRGB(255, 100, 100))
+        addOutput("Command not found: '" .. cmd .. "'", Color3.fromRGB(255, 100, 100))
         addOutput("Type 'help' for available commands", Color3.fromRGB(150, 150, 150))
     end
 end
@@ -286,12 +414,11 @@ InputBox.FocusLost:Connect(function(enterPressed)
             historyIndex = #commandHistory + 1
             processCommand(input)
             InputBox.Text = ""
-            currentInput = ""
         end
     end
 end)
 
--- История команд
+-- История команд (стрелки вверх/вниз)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
     
@@ -299,41 +426,36 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if historyIndex > 1 then
             historyIndex = historyIndex - 1
             InputBox.Text = commandHistory[historyIndex] or ""
+            InputBox.CursorPosition = #InputBox.Text + 1
         end
     elseif input.KeyCode == Enum.KeyCode.Down then
         if historyIndex < #commandHistory then
             historyIndex = historyIndex + 1
             InputBox.Text = commandHistory[historyIndex] or ""
+            InputBox.CursorPosition = #InputBox.Text + 1
         elseif historyIndex == #commandHistory then
             historyIndex = #commandHistory + 1
             InputBox.Text = ""
         end
+    elseif input.KeyCode == Enum.KeyCode.E then and input.Control then
+        -- Ctrl+E для фокуса на ввод
+        InputBox:CaptureFocus()
     end
 end)
 
--- Анимация курсора
-spawn(function()
-    while ScreenGui.Parent do
-        CursorLabel.Visible = not CursorLabel.Visible
-        wait(0.5)
-    end
-end)
-
--- Закрытие на L
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if input.KeyCode == Enum.KeyCode.L then
-        ScreenGui:Destroy()
-    end
+-- Авто-фокус при клике на терминал
+TerminalFrame.InputBegan:Connect(function()
+    InputBox:CaptureFocus()
 end)
 
 -- Начальные сообщения
 ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
-addOutput("GAME TERMINAL v1.0 initialized", Color3.fromRGB(0, 255, 0))
-addOutput("Place ID: " .. game.PlaceId, Color3.fromRGB(150, 255, 150))
+wait(0.1)
+addOutput("Game Terminal v2.0 initialized", Color3.fromRGB(0, 255, 0))
 addOutput("Type 'help' for commands", Color3.fromRGB(150, 150, 150))
 addOutput("")
 
 -- Фокус на поле ввода
-wait(0.5)
+wait(0.3)
 InputBox:CaptureFocus() 
